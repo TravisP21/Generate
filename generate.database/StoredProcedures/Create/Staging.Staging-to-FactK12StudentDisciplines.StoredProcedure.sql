@@ -4,7 +4,7 @@ Date:	5/1/2022
 Description: Migrates Discipline Data from Staging to RDS.FactK12StudentDisciplines
 
 ************************************************************************/
-CREATE PROCEDURE [Staging].[Staging-to-FactK12StudentDisciplines]
+Create PROCEDURE [Staging].[Staging-to-FactK12StudentDisciplines]
 	@SchoolYear SMALLINT
 AS
 BEGIN
@@ -60,9 +60,13 @@ BEGIN
 
 		IF OBJECT_ID('tempdb.dbo.#vwDimIdeaStatuses', 'U') IS NOT NULL 
 			DROP TABLE #vwDimIdeaStatuses; 		
-		SELECT v.* INTO #vwDimIdeaStatuses FROM RDS.vwDimIdeaStatuses v
-		WHERE v.SchoolYear = @SchoolYear
-		CREATE INDEX IX_vwDimIdeaStatuses ON #vwDimIdeaStatuses(SchoolYear, IdeaIndicatorMap, IdeaEducationalEnvironmentMap, SpecialEducationExitReasonMap) INCLUDE (IdeaIndicatorCode, IdeaEducationalEnvironmentCode, SpecialEducationExitReasonCode)
+		
+		SELECT * INTO #vwDimIdeaStatuses FROM RDS.vwDimIdeaStatuses
+		WHERE SchoolYear = @SchoolYear
+
+		CREATE CLUSTERED INDEX ix_tempvwIdeaStatuses ON #vwDimIdeaStatuses (IdeaIndicatorMap, IdeaEducationalEnvironmentForSchoolageMap);
+
+
 
 		IF OBJECT_ID('tempdb.dbo.#vwDimGradeLevels', 'U') IS NOT NULL 
 			DROP TABLE #vwDimGradeLevels; 		
@@ -73,9 +77,9 @@ BEGIN
 
 		IF OBJECT_ID('tempdb.dbo.#vwDimDisciplines', 'U') IS NOT NULL 
 			DROP TABLE #vwDimDisciplines; 		
-		SELECT v.* INTO #vwDimDisciplines FROM RDS.vwDimDisciplines v
+		SELECT v.* INTO #vwDimDisciplines FROM RDS.vwDimDisciplineStatuses v
 		WHERE v.SchoolYear = @SchoolYear
-		CREATE INDEX IX_vwDimDisciplines ON #vwDimDisciplines(SchoolYear, IdeaInterimRemovalMap, IdeaInterimRemovalReasonMap, DisciplineELStatusMap) INCLUDE (IdeaInterimRemovalCode, IdeaInterimRemovalReasonCode, DisciplineELStatusCode)
+		CREATE INDEX IX_vwDimDisciplines ON #vwDimDisciplines(SchoolYear, IdeaInterimRemovalMap, IdeaInterimRemovalReasonMap) INCLUDE (IdeaInterimRemovalCode, IdeaInterimRemovalReasonCode)
 
 		IF OBJECT_ID('tempdb.dbo.#vwDimRaces', 'U') IS NOT NULL 
 			DROP TABLE #vwDimRaces; 		
@@ -177,12 +181,12 @@ BEGIN
 			, rda.DimAgeId									AgeId
 			, rsy.DimSchoolYearId							SchoolYearId
 			, ISNULL(rdkd.DimK12DemographicId, -1)			K12DemographicId
-			, ISNULL(rddisc.DimDisciplineId, -1)			DisciplineId
+			, ISNULL(rddisc.DimDisciplineStatusId, -1)		DisciplineStatusId
 			, @FactTypeId									FactTypeId
 			, ISNULL(rdis.DimIdeaStatusId, -1)				IdeaStatusId
-			, -1											ProgramStatusId
+			--, -1											ProgramStatusId
 			, ISNULL(rdksch.DimK12SchoolId, -1)				K12SchoolId
-			, rdks.DimK12StudentId							K12StudentId
+			, rdp.DimPersonId								K12StudentId
 			, 1												DisciplineCount
 			, ISNULL(sd.DurationOfDisciplinaryAction, 0)	DisciplineDuration
 			, -1											FirearmsId
@@ -204,18 +208,12 @@ BEGIN
 			ON ske.StudentIdentifierState = sppse.StudentIdentifierState
 			AND ISNULL(ske.LeaIdentifierSeaAccountability, '') = ISNULL(sppse.LeaIdentifierSeaAccountability, '') 
 			AND ISNULL(ske.SchoolIdentifierSea, '') = ISNULL(sppse.SchoolIdentifierSea, '')
-			AND sd.DisciplinaryActionStartDate BETWEEN sppse.ProgramParticipationBeginDate AND ISNULL(sppse.ProgramParticipationEndDate, @EndDate)
-		LEFT JOIN Staging.PersonStatus idea
-			ON sd.StudentIdentifierState = idea.StudentIdentifierState
-			AND ISNULL(ske.LeaIdentifierSeaAccountability, '') = ISNULL(idea.LeaIdentifierSeaAccountability, '')
-			AND ISNULL(ske.SchoolIdentifierSea, '') = ISNULL(idea.SchoolIdentifierSea, '')
-			--AND sd.DisciplinaryActionStartDate BETWEEN idea.IDEA_StatusStartDate AND ISNULL(idea.IDEA_StatusEndDate, @EndDate)
-		LEFT JOIN RDS.vwUnduplicatedRaceMap spr --  Using a view that resolves multiple race records by returinging the value TwoOrMoreRaces
+			AND sd.DisciplinaryActionStartDate BETWEEN sppse.ProgramParticipationBeginDate AND ISNULL(sppse.ProgramParticipationEndDate, @EndDate)		
+		LEFT JOIN RDS.vwUnduplicatedRaceMap spr
 			ON ske.SchoolYear = spr.SchoolYear
 			AND ske.StudentIdentifierState = spr.StudentIdentifierState
-			AND (ske.LeaIdentifierSeaAccountability = spr.LeaIdentifierSeaAccountability
-					OR ske.SchoolIdentifierSea = spr.SchoolIdentifierSea)
-					
+			AND ISNULL(ske.LeaIdentifierSeaAccountability, '') = ISNULL(spr.LeaIdentifierSeaAccountability, '')
+			AND ISNULL(ske.SchoolIdentifierSea, '') = ISNULL(spr.SchoolIdentifierSea, '')
 		LEFT JOIN #tempELStatus el
 			ON sd.StudentIdentifierState = el.StudentIdentifierState
 			AND ISNULL(sd.LeaIdentifierSeaAccountability, '') = ISNULL(el.LeaIdentifierSeaAccountability, '')
@@ -225,28 +223,24 @@ BEGIN
 			ON ske.SchoolYear = rsy.SchoolYear
 		JOIN RDS.DimAges rda
 			ON RDS.Get_Age(ske.Birthdate, @ChildCountDate) = rda.AgeValue
-		JOIN RDS.DimK12Students rdks
-			ON sd.StudentIdentifierState = rdks.StateStudentIdentifier
-			AND ISNULL(ske.FirstName, '') = ISNULL(rdks.FirstName, '')
-			AND ISNULL(ske.MiddleName, '') = ISNULL(rdks.MiddleName, '')
-			AND ISNULL(ske.LastName, 'MISSING') = rdks.LastName
-			AND ISNULL(ske.Birthdate, '1/1/1900') = ISNULL(rdks.BirthDate, '1/1/1900')
-			AND sd.DisciplinaryActionStartDate BETWEEN rdks.RecordStartDateTime AND ISNULL(rdks.RecordEndDateTime, @EndDate)
+		JOIN RDS.DimPeople rdp
+			ON ske.StudentIdentifierState = rdp.K12StudentStudentIdentifierState
+			AND ISNULL(ske.FirstName, '') = ISNULL(rdp.FirstName, '')
+			AND ISNULL(ske.MiddleName, '') = ISNULL(rdp.MiddleName, '')
+			AND ISNULL(ske.LastOrSurname, 'MISSING') = rdp.LastOrSurname
+			AND ISNULL(ske.Birthdate, '1/1/1900') = ISNULL(rdp.BirthDate, '1/1/1900')
+			AND sd.DisciplinaryActionStartDate BETWEEN rdp.RecordStartDateTime AND ISNULL(rdp.RecordEndDateTime, @EndDate)
+			AND IsActiveK12Student = 1
 		LEFT JOIN RDS.DimLeas rdl
-			ON sd.LeaIdentifierSeaAccountability = rdl.LeaIdentifierState
+			ON sd.LeaIdentifierSeaAccountability = rdl.LeaIdentifierSea
 			AND sd.DisciplinaryActionStartDate BETWEEN rdl.RecordStartDateTime AND ISNULL(rdl.RecordEndDateTime, @EndDate)
 		LEFT JOIN RDS.DimK12Schools rdksch
-			ON sd.SchoolIdentifierSea = rdksch.SchoolIdentifierState
+			ON sd.SchoolIdentifierSea = rdksch.SchoolIdentifierSea
 			AND sd.DisciplinaryActionStartDate BETWEEN rdksch.RecordStartDateTime AND ISNULL(rdksch.RecordEndDateTime, @EndDate)
-		LEFT JOIN #vwDimK12Demographics rdkd
-			ON rsy.SchoolYear = rdkd.SchoolYear
-			AND ISNULL(el.EnglishLearnerStatus, 0) = rdkd.EnglishLearnerStatusMap
-			AND rdkd.EconomicDisadvantageStatusCode = 'MISSING'
-			AND rdkd.HomelessnessStatusCode = 'MISSING'
-			AND rdkd.HomelessPrimaryNighttimeResidenceCode = 'MISSING'
-			AND rdkd.HomelessUnaccompaniedYouthStatusCode = 'MISSING'
-			AND rdkd.MigrantStatusCode = 'MISSING'
-			AND rdkd.MilitaryConnectedStudentIndicatorCode = 'MISSING'
+	   JOIN RDS.vwDimK12Demographics rdkd
+ 				ON rsy.SchoolYear = rdkd.SchoolYear
+		
+		-- this view is missing and codded wrong in in file
 		LEFT JOIN #vwDimDisciplines rddisc
 			ON rsy.SchoolYear = rddisc.SchoolYear
 			AND ISNULL(sd.DisciplinaryActionTaken, 'MISSING')						= ISNULL(rddisc.DisciplinaryActionTakenMap, rddisc.DisciplinaryActionTakenCode)
@@ -254,14 +248,13 @@ BEGIN
 			AND ISNULL(CAST(sd.EducationalServicesAfterRemoval AS SMALLINT), -1)	= ISNULL(rddisc.EducationalServicesAfterRemovalMap, -1)
 			AND ISNULL(sd.IdeaInterimRemoval, 'MISSING')							= ISNULL(rddisc.IdeaInterimRemovalMap, rddisc.IdeaInterimRemovalCode)
 			AND ISNULL(sd.IdeaInterimRemovalReason, 'MISSING')						= ISNULL(rddisc.IdeaInterimRemovalReasonMap, rddisc.IdeaInterimRemovalReasonCode)
-			AND ISNULL(CAST(el.EnglishLearnerStatus AS SMALLINT), -1)				= ISNULL(rddisc.DisciplineELStatusMap, -1)
+			--AND ISNULL(CAST(el.EnglishLearnerStatus AS SMALLINT), -1)				= ISNULL(rddisc.DisciplineELStatusMap, -1)
 		LEFT JOIN #vwDimIdeaStatuses rdis
 			ON ske.SchoolYear = rdis.SchoolYear
-			AND ISNULL(CAST(idea.IDEAIndicator AS SMALLINT), -1)					= ISNULL(rdis.IdeaIndicatorMap, -1)
-			AND ISNULL(idea.PrimaryDisabilityType, 'MISSING')						= ISNULL(rdis.PrimaryDisabilityTypeMap, rdis.PrimaryDisabilityTypeCode)
-			AND ISNULL(sppse.IDEAEducationalEnvironmentForSchoolAge, 'MISSING')		= ISNULL(rdis.IdeaEducationalEnvironmentMap, rdis.IdeaEducationalEnvironmentCode)
-			AND ISNULL(sppse.SpecialEducationExitReason, 'MISSING')					= ISNULL(rdis.SpecialEducationExitReasonMap, rdis.SpecialEducationExitReasonCode) 
-			AND sd.DisciplinaryActionStartDate BETWEEN idea.Idea_StatusStartDate AND ISNULL(idea.Idea_StatusEndDate, @EndDate)
+			AND  rdis.IdeaIndicatorCode = 'Yes'
+
+		-- not sure what date this should be 
+			AND sd.DisciplinaryActionStartDate BETWEEN sppse.ProgramParticipationBeginDate AND ISNULL(sppse.ProgramParticipationEndDate, @EndDate)
 		LEFT JOIN #vwDimGradeLevels rgls
 			ON rsy.SchoolYear = rgls.SchoolYear
 			AND ske.GradeLevel = rgls.GradeLevelMap
@@ -280,7 +273,8 @@ BEGIN
 				DROP TABLE #vwDimCteStatuses; 		
 			SELECT v.* INTO #vwDimCteStatuses FROM RDS.vwDimCteStatuses v
 			WHERE v.SchoolYear = @SchoolYear
-			CREATE INDEX IX_vwDimCteStatuses ON #vwDimCteStatuses(SchoolYear, CteProgramMap, CteAeDisplacedHomemakerIndicatorMap, CteNontraditionalGenderStatusMap, RepresentationStatusMap, SingleParentOrSinglePregnantWomanMap, CteGraduationRateInclusionMap, LepPerkinsStatusMap) INCLUDE (CteProgramCode, CteAeDisplacedHomemakerIndicatorCode, CteNontraditionalGenderStatusCode, RepresentationStatusCode, SingleParentOrSinglePregnantWomanCode, CteGraduationRateInclusionCode, LepPerkinsStatusCode)
+			CREATE INDEX IX_vwDimCteStatuses ON #vwDimCteStatuses(SchoolYear, CteAeDisplacedHomemakerIndicatorMap, CteNontraditionalGenderStatusMap, SingleParentOrSinglePregnantWomanStatusMap) 
+			INCLUDE (CteAeDisplacedHomemakerIndicatorCode, CteNontraditionalGenderStatusCode, SingleParentOrSinglePregnantWomanStatusCode)
 	
 		/*  Update the #Facts table */			
 			UPDATE #Facts
@@ -303,24 +297,20 @@ BEGIN
 				AND ISNULL(sd.LeaIdentifierSeaAccountability, '') = ISNULL(sppc_sp.LeaIdentifierSeaAccountability, '')
 				AND ISNULL(sd.SchoolIdentifierSea, '') = ISNULL(sppc_sp.SchoolIdentifierSea, '')
 				AND sd.DisciplinaryActionStartDate BETWEEN sppc_sp.SingleParent_StatusStartDate AND ISNULL(sppc_sp.SingleParent_StatusEndDate, @EndDate)
+			-- DO not find these fields
 			LEFT JOIN Staging.PersonStatus sps
 				ON sd.StudentIdentifierState = sps.StudentIdentifierState
 				AND ISNULL(sd.LeaIdentifierSeaAccountability, '') = ISNULL(sps.LeaIdentifierSeaAccountability, '')
 				AND ISNULL(sd.SchoolIdentifierSea, '') = ISNULL(sps.SchoolIdentifierSea, '')
-				AND sd.DisciplinaryActionStartDate BETWEEN sps.PerkinsLEPStatus_StatusStartDate AND ISNULL(sps.PerkinsLEPStatus_StatusEndDate, @EndDate)
+				AND sd.DisciplinaryActionStartDate BETWEEN sps.PerkinsEnglishLearnerStatus_StatusStartDate AND ISNULL(sps.PerkinsEnglishLearnerStatus_StatusEndDate, @EndDate)
 			LEFT JOIN #vwDimCteStatuses rdcs
-				ON CASE
-					WHEN ISNULL(sppc_part_conc.CteConcentrator, 0) = 1					THEN 2
-					WHEN ISNULL(sppc_part_conc.CteParticipant, 0) = 1					THEN 1
-					WHEN sppc_part_conc.CteParticipant = 0								THEN 0
-					ELSE -1
-				   END																			= ISNULL(rdcs.CteProgramMap, -1)
+				ON  ISNULL(CAST(sppc_part_conc.CteParticipant AS SMALLINT), -1)					= ISNULL(rdcs.CteParticipantMap, -1)
+				AND ISNULL(CAST(sppc_part_conc.CteConcentrator AS SMALLINT), -1)				= ISNULL(rdcs.CteConcentratorMap, -1)
 				AND ISNULL(CAST(sppc_dhm.DisplacedHomeMakerIndicator AS SMALLINT), -1)			= ISNULL(rdcs.CteAeDisplacedHomemakerIndicatorMap, -1)
 				AND ISNULL(CAST(sppc_part_conc.NonTraditionalGenderStatus AS SMALLINT), -1)		= ISNULL(rdcs.CteNontraditionalGenderStatusMap, -1)
-				AND ISNULL(CAST(sppc_part_conc.NonTraditionalGenderStatus AS SMALLINT), -1)		= ISNULL(rdcs.RepresentationStatusMap, -1)
-				AND ISNULL(CAST(sppc_sp.SingleParentIndicator AS SMALLINT), -1)					= ISNULL(rdcs.SingleParentOrSinglePregnantWomanMap, -1)
-				AND ISNULL(CAST(sppc_sp.SingleParentIndicator AS SMALLINT), -1)					= ISNULL(rdcs.SingleParentOrSinglePregnantWomanMap, -1)
-				AND ISNULL(CAST(sps.PerkinsLEPStatus AS SMALLINT), -1)							= ISNULL(rdcs.LepPerkinsStatusMap, -1)
+				AND ISNULL(CAST(sppc_part_conc.NonTraditionalGenderStatus AS SMALLINT), -1)		= ISNULL(rdcs.CteNontraditionalGenderStatusMap, -1)
+				AND ISNULL(CAST(sppc_sp.SingleParentIndicator AS SMALLINT), -1)					= ISNULL(rdcs.SingleParentOrSinglePregnantWomanStatusMap, -1)
+				AND ISNULL(CAST(sppc_sp.SingleParentIndicator AS SMALLINT), -1)					= ISNULL(rdcs.SingleParentOrSinglePregnantWomanStatusMap, -1)
 		END
 
 		/*  Final insert into RDS.FactK12StudentDisciplines  table */
@@ -328,20 +318,20 @@ BEGIN
 			  AgeId
 			, SchoolYearId
 			, K12DemographicId
-			, DisciplineId
+			, DisciplineStatusId
 			, FactTypeId
 			, IdeaStatusId
-			, ProgramStatusId
+			--, ProgramStatusId -- new table FactK12StudentAssessments
 			, K12SchoolId
 			, K12StudentId
 			, DisciplineCount
-			, DisciplineDuration
-			, FirearmsId
-			, FirearmDisciplineId
+			, DurationOfDisciplinaryAction
+			, FirearmId
+			, FirearmDisciplineStatusId
 			, GradeLevelId
 			, LeaId
-			, DisciplinaryActionStartDate
-			, RaceId
+			, DisciplinaryActionStartDateId
+			, RaceId -- missing
 			, CteStatusId
 			, SeaId
 			, IeuId
@@ -353,7 +343,7 @@ BEGIN
 			, DisciplineId
 			, FactTypeId
 			, IdeaStatusId
-			, ProgramStatusId
+			--, ProgramStatusId
 			, K12SchoolId
 			, K12StudentId
 			, DisciplineCount
