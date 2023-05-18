@@ -1,6 +1,37 @@
 	SET NOCOUNT ON;
 	GO 
 
+----------------------------------delete c122 2022-2023 metadata------------------------------------------------------
+declare @reportId as int
+
+select @reportId = GenerateReportId from app.GenerateReports where ReportCode = 'c122'
+
+delete co
+from app.CategorySets cs 
+inner join app.CategorySet_Categories csc on cs.CategorySetId = csc.CategorySetId
+inner join app.Categories c on csc.CategoryId = c.CategoryId
+inner join app.CategoryOptions co on cs.CategorySetId = co.CategorySetId and co.CategoryId = c.CategoryId
+where SubmissionYear = 2022 and cs.GenerateReportId = @reportId
+
+delete csc
+from app.CategorySets cs 
+inner join app.CategorySet_Categories csc on cs.CategorySetId = csc.CategorySetId
+inner join app.Categories c on csc.CategoryId = c.CategoryId
+where SubmissionYear = 2022 and cs.GenerateReportId = @reportId
+
+delete from app.CategorySets where SubmissionYear = 2022 and GenerateReportId = @reportId
+
+delete fsfc
+from app.FileSubmissions fs
+inner join app.FileSubmission_FileColumns fsfc on fs.FileSubmissionId = fsfc.FileSubmissionId
+where fs.SubmissionYear = 2022 and fs.GenerateReportId = @reportId
+
+delete from app.FileSubmissions where SubmissionYear = 2022 and GenerateReportId = @reportId
+
+GO
+
+-------------------------------delete 2023-2024 metadata before re-populating it from ESS------------------------------
+
 delete co
 from app.CategorySets cs 
 inner join app.CategorySet_Categories csc on cs.CategorySetId = csc.CategorySetId
@@ -15,6 +46,13 @@ inner join app.Categories c on csc.CategoryId = c.CategoryId
 where SubmissionYear = 2023
 
 delete from app.CategorySets where SubmissionYear = 2023
+
+delete fsfc
+from app.FileSubmissions fs
+inner join app.FileSubmission_FileColumns fsfc on fs.FileSubmissionId = fsfc.FileSubmissionId
+where fs.SubmissionYear = 2023
+
+delete from app.FileSubmissions where SubmissionYear = 2023
 
 GO
 
