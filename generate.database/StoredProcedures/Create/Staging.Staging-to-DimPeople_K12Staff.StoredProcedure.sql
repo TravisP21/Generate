@@ -22,9 +22,9 @@ BEGIN
 		END
 
 		CREATE TABLE #k12Staff (
-			FirstName										NVARCHAR(50) NULL
-			, MiddleName									NVARCHAR(50) NULL
-			, LastOrSurname									NVARCHAR(50) NULL
+			  FirstName										NVARCHAR(75) NULL
+			, MiddleName									NVARCHAR(75) NULL
+			, LastOrSurname									NVARCHAR(75) NULL
 			, BirthDate										DATE NULL
 			, K12StaffStaffMemberIdentifierState			NVARCHAR(40) NULL
 			, IsActiveK12StaffMember						BIT NULL
@@ -51,7 +51,7 @@ BEGIN
 			, 1
 			, RecordStartDateTime
 			, RecordEndDateTime
-		FROM Staging.StaffAssignment sa
+		FROM Staging.K12StaffAssignment sa
 
 		MERGE rds.DimPeople AS trgt
 		USING #K12Staff AS src
