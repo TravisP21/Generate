@@ -13,7 +13,6 @@ CREATE FUNCTION [RDS].[Get_CountSQL] (
 RETURNS nvarchar(MAX)
 AS
 BEGIN
-	
 	declare @sql as nvarchar(max)
 	set @sql = ''
 
