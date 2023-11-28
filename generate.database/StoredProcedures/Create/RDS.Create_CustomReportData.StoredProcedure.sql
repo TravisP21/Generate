@@ -21,8 +21,8 @@ BEGIN
 
 	declare @results1 as table (
 	StateANSICode nvarchar(100),
-	StateCode nvarchar(100),
-	StateName nvarchar(100),
+	StateAbbreviationCode nvarchar(100),
+	StateAbbreviationDescription nvarchar(100),
 	OrganizationNcesId nvarchar(100),
 	OrganizationStateId nvarchar(100),
 	OrganizationName nvarchar(500),
@@ -67,8 +67,8 @@ BEGIN
 	ReportLevel varchar(40),
 	CategorySetCode varchar(40),
 	StateANSICode nvarchar(100),
-	StateCode nvarchar(100),
-	StateName nvarchar(100),
+	StateAbbreviationCode nvarchar(100),
+	StateAbbreviationDescription nvarchar(100),
 	OrganizationNcesId nvarchar(100),
 	OrganizationStateId nvarchar(100),
 	OrganizationName nvarchar(500),
@@ -109,8 +109,8 @@ BEGIN
 
 
 	declare @StateANSICode nvarchar(100)
-	declare @StateCode nvarchar(100)
-	declare @StateName nvarchar(100)
+	declare @StateAbbreviationCode nvarchar(100)
+	declare @StateAbbreviationDescription nvarchar(100)
 	declare @OrganizationNcesId nvarchar(100)
 	declare @OrganizationStateId nvarchar(100)
 	declare @OrganizationName nvarchar(500)
@@ -243,8 +243,8 @@ BEGIN
 
 					declare @organizations as table (
 					StateANSICode nvarchar(100),
-					StateCode nvarchar(100),
-					StateName nvarchar(100),
+					StateAbbreviationCode nvarchar(100),
+					StateAbbreviationDescription nvarchar(100),
 					OrganizationNcesId nvarchar(100),
 					OrganizationStateId nvarchar(100),
 					OrganizationName nvarchar(500),
@@ -255,8 +255,8 @@ BEGIN
 				insert into @organizations
 					(
 					StateANSICode,
-					StateCode,
-					StateName,
+					StateAbbreviationCode,
+					StateAbbreviationDescription,
 					OrganizationNcesId,
 					OrganizationStateId,
 					OrganizationName,
@@ -267,9 +267,9 @@ BEGIN
 					s.StateAbbreviationCode,
 					s.StateAbbreviationDescription,
 					s.LeaIdentifierNces,
-					s.LeaIdentifierState,
-					s.LeaName,
-					s.SeaIdentifierState
+					s.LeaIdentifierSea,
+					s.LeaOrganizationName,
+					s.SeaOrganizationIdentifierSea
 					from rds.FactK12StudentCounts f
 					inner join rds.DimSchoolYears d on f.SchoolYearId = d.DimSchoolYearId
 					inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
@@ -289,7 +289,7 @@ BEGIN
 
 					declare @studentCounts as table (
 					DimStudentId int,
-					LeaStateIdentifier varchar(100),
+					LeaIdentifierSea varchar(100),
 					LeaName varchar(500),
 					DisabilityEdFactsCode varchar(50),
 					StudentCount int
@@ -300,15 +300,15 @@ BEGIN
 					insert into @studentCounts
 					(
 					DimStudentId,
-					LeaStateIdentifier,
+					LeaIdentifierSea,
 					LeaName,
 					DisabilityEdFactsCode,
 					StudentCount
 					)
 					select 
 					f.K12StudentId,
-					s.LeaIdentifierState,
-					s.LeaName,
+					s.LeaIdentifierSea,
+					s.LeaOrganizationName,
 					i.PrimaryDisabilityTypeEdFactsCode,
 					f.StudentCount
 					from rds.FactK12StudentCounts f
@@ -334,7 +334,7 @@ BEGIN
 
 					declare @studentDisciplines as table (
 					DimStudentId int,
-					LeaStateIdentifier varchar(100),
+					LeaIdentifierSea varchar(100),
 					LeaName varchar(500),
 					DisabilityEdFactsCode varchar(50),
 					DisciplineDuration decimal(18,4),
@@ -346,15 +346,15 @@ BEGIN
 					insert into @studentDisciplines
 					(
 					DimStudentId,
-					LeaStateIdentifier,
+					LeaIdentifierSea,
 					LeaName,
 					DisabilityEdFactsCode,
 					DisciplineDuration
 					)
 					select 
 					f.K12StudentId,
-					s.LeaIdentifierState,
-					s.LeaName,
+					s.LeaIdentifierSea,
+					s.LeaOrganizationName,
 					i.PrimaryDisabilityTypeEdFactsCode,
 					sum(f.DisciplineDuration) as DisciplineDuration
 					from rds.FactK12StudentDisciplines f
@@ -370,8 +370,8 @@ BEGIN
 					--CIID-1963
 					and ISNULL(s.ReportedFederally, 1) = 1
 					group by f.K12StudentId,
-					s.LeaIdentifierState,
-					s.LeaName,
+					s.LeaIdentifierSea,
+					s.LeaOrganizationName,
 					i.PrimaryDisabilityTypeEdFactsCode
 
 					update @studentDisciplines set StudentCount = case when DisciplineDuration > 0 then 1 else 0 end
@@ -388,7 +388,7 @@ BEGIN
 					select @stateWithDisabilitiesGreater10 = sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode <> 'MISSING' and DisciplineDuration > 10.0
 					select @stateWithoutDisabilitiesGreater10 = sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode = 'MISSING' and DisciplineDuration > 10.0
 
-					select @numberLeasWithDisabilitiesGreater10 = count(distinct LeaStateIdentifier) from @studentDisciplines where DisabilityEdFactsCode <> 'MISSING' and DisciplineDuration > 10.0 
+					select @numberLeasWithDisabilitiesGreater10 = count(distinct LeaIdentifierSea) from @studentDisciplines where DisabilityEdFactsCode <> 'MISSING' and DisciplineDuration > 10.0 
 
 				end
 
@@ -400,17 +400,17 @@ BEGIN
 
 					select 
 						s.StateANSICode,
-						s.StateCode,
-						s.StateName,
+						s.StateAbbreviationCode,
+						s.StateAbbreviationDescription,
 						s.OrganizationNcesId,
 						s.OrganizationStateId,
 						s.OrganizationName,
 						s.ParentOrganizationStateId,
 						null as col_1,
-						isnull((select sum(StudentCount) from @studentCounts where DisabilityEdFactsCode <> 'MISSING' and LeaStateIdentifier = s.OrganizationStateId), 0) as col_2,
-						isnull((select sum(StudentCount) from @studentCounts where DisabilityEdFactsCode = 'MISSING' and LeaStateIdentifier = s.OrganizationStateId), 0) as col_3,
-						isnull((select sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode <> 'MISSING' and LeaStateIdentifier = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_4,
-						isnull((select sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode = 'MISSING' and LeaStateIdentifier = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_5,
+						isnull((select sum(StudentCount) from @studentCounts where DisabilityEdFactsCode <> 'MISSING' and LeaIdentifierSea = s.OrganizationStateId), 0) as col_2,
+						isnull((select sum(StudentCount) from @studentCounts where DisabilityEdFactsCode = 'MISSING' and LeaIdentifierSea = s.OrganizationStateId), 0) as col_3,
+						isnull((select sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode <> 'MISSING' and LeaIdentifierSea = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_4,
+						isnull((select sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode = 'MISSING' and LeaIdentifierSea = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_5,
 						null as col_6,
 						null as col_7,
 						case when @stateWithDisabilities > 0 then convert(decimal(18,4),@stateWithDisabilitiesGreater10) / convert(decimal(18,4),@stateWithDisabilities) else null end as col_8,
@@ -429,7 +429,7 @@ BEGIN
 					from @organizations s
 
 					OPEN r1_cursor
-					FETCH NEXT FROM r1_cursor INTO @StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
+					FETCH NEXT FROM r1_cursor INTO @StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
 
 					WHILE @@FETCH_STATUS = 0
 					BEGIN
@@ -441,8 +441,8 @@ BEGIN
 						insert into @results1
 						(
 							StateANSICode,
-							StateCode,
-							StateName,
+							StateAbbreviationCode,
+							StateAbbreviationDescription,
 							OrganizationNcesId,
 							OrganizationStateId,
 							OrganizationName,
@@ -470,12 +470,12 @@ BEGIN
 						)
 						values
 						(	
-							@StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId,  
+							@StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId,  
 							@col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
 						)
 
 
-						FETCH NEXT FROM r1_cursor INTO @StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
+						FETCH NEXT FROM r1_cursor INTO @StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
 					END
 
 					CLOSE r1_cursor
@@ -490,8 +490,8 @@ BEGIN
 
 					select 
 							StateANSICode,
-							StateCode,
-							StateName,
+							StateAbbreviationCode,
+							StateAbbreviationDescription,
 							OrganizationNcesId,
 							OrganizationStateId,
 							OrganizationName,
@@ -519,7 +519,7 @@ BEGIN
 					from @results1
 
 					OPEN r2_cursor
-					FETCH NEXT FROM r2_cursor INTO @StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
+					FETCH NEXT FROM r2_cursor INTO @StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
 
 					WHILE @@FETCH_STATUS = 0
 					BEGIN
@@ -543,8 +543,8 @@ BEGIN
 							ReportLevel,
 							CategorySetCode,
 							StateANSICode,
-							StateCode,
-							StateName,
+							StateAbbreviationCode,
+							StateAbbreviationDescription,
 							OrganizationNcesId,
 							OrganizationStateId,
 							OrganizationName,
@@ -573,12 +573,12 @@ BEGIN
 						values
 						(
 							@reportCode, @reportYear, @reportLevel, @categorySetCode,
-							@StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, 
+							@StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, 
 							@col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
 						)
 
 
-						FETCH NEXT FROM r2_cursor INTO @StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
+						FETCH NEXT FROM r2_cursor INTO @StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10a, @col_10b, @col_11a, @col_11b, @col_11c, @col_11d, @col_11e, @col_12, @col_13, @col_14, @col_15
 					END
 
 					CLOSE r2_cursor
@@ -597,7 +597,7 @@ BEGIN
 					declare @studentCountsWithRace as table
 					(
 						DimStudentId int,
-						LeaStateIdentifier varchar(100),
+						LeaIdentifierSea varchar(100),
 						LeaName varchar(500),
 						DisabilityEdFactsCode varchar(50),
 						RaceCode varchar(50),
@@ -609,7 +609,7 @@ BEGIN
 					insert into @studentCountsWithRace
 					(
 						DimStudentId,
-						LeaStateIdentifier,
+						LeaIdentifierSea,
 						LeaName,
 						DisabilityEdFactsCode,
 						RaceCode,
@@ -617,8 +617,8 @@ BEGIN
 					)
 					select 
 						f.K12StudentId,
-						s.LeaIdentifierState,
-						s.LeaName,
+						s.LeaIdentifierSea,
+						s.LeaOrganizationName,
 						i.PrimaryDisabilityTypeEdFactsCode,
 						r.RaceCode,
 						f.StudentCount
@@ -647,7 +647,7 @@ BEGIN
 					declare @studentDisciplinesWithRace as table
 					(
 						DimStudentId int,
-						LeaStateIdentifier varchar(100),
+						LeaIdentifierSea varchar(100),
 						LeaName varchar(500),
 						DisabilityEdFactsCode varchar(50),
 						RaceCode varchar(50),
@@ -660,7 +660,7 @@ BEGIN
 					insert into @studentDisciplinesWithRace
 					(
 						DimStudentId,
-						LeaStateIdentifier,
+						LeaIdentifierSea,
 						LeaName,
 						DisabilityEdFactsCode,
 						RaceCode,
@@ -668,14 +668,14 @@ BEGIN
 						StudentCount
 					)
 					select 
-						f.DimStudentId,
-						s.LeaStateIdentifier,
-						s.LeaName,
+						f.K12StudentId,
+						s.LeaIdentifierSea,
+						s.LeaOrganizationName,
 						i.DisabilityEdFactsCode,
 						r.RaceCode,
-						sum(f.DisciplineDuration),
-						count(f.DimStudentId)
-					from rds.FactStudentDisciplines f
+						sum(f.DurationOfDisciplinaryAction),
+						count(f.k12StudentId)
+					from rds.FactK12StudentDisciplines f
 					inner join rds.DimSchoolYears d on f.SchoolYearId = d.DimSchoolYearId
 					inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
 					inner join rds.DimK12Schools s on f.K12SchoolId = s.DimK12SchoolId
@@ -683,13 +683,13 @@ BEGIN
 					inner join rds.DimRaces r on f.RaceId = r.DimRaceId
 					inner join rds.DimAges a on f.AgeId = a.DimAgeId
 					where ft.FactTypeCode = @dimFactTypeCode
-					and d.SubmissionYear = @reportYear
+					and d.SchoolYear = @reportYear
 					and a.AgeValue >= 3 and a.AgeValue <= 21
 					and f.K12SchoolId <> -1
 					and ISNULL(s.ReportedFederally, 1) = 1
 					group by f.K12StudentId,
-					s.LeaIdentifierState,
-					s.LeaName,
+					s.LeaIdentifierSea,
+					s.LeaOrganizationName,
 					r.RaceCode,
 					i.PrimaryDisabilityEdFactsCode
 					
@@ -703,19 +703,19 @@ BEGIN
 
 					select 
 						s.StateANSICode,
-						s.StateCode,
-						s.StateName,
+						s.StateAbbreviationCode,
+						s.StateAbbreviationDescription,
 						s.OrganizationNcesId,
 						s.OrganizationStateId,
 						s.OrganizationName,
 						s.ParentOrganizationStateId,
 						null as col_1,
-						isnull((select sum(StudentCount) from @studentCounts where DisabilityEdFactsCode <> 'MISSING' and LeaStateIdentifier = s.OrganizationStateId), 0) as col_2,
-						isnull((select sum(StudentCount) from @studentCountsWithRace where DisabilityEdFactsCode = 'MISSING' and RaceCode = @categorySetCode and LeaStateIdentifier = s.OrganizationStateId), 0) as col_3,
-						isnull((select sum(StudentCount) from @studentCounts where DisabilityEdFactsCode = 'MISSING' and LeaStateIdentifier = s.OrganizationStateId), 0) as col_4,
-						isnull((select sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode <> 'MISSING' and LeaStateIdentifier = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_5,
-						isnull((select sum(StudentCount) from @studentDisciplinesWithRace where DisabilityEdFactsCode <> 'MISSING' and RaceCode = @categorySetCode and LeaStateIdentifier = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_6,
-						isnull((select sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode = 'MISSING' and LeaStateIdentifier = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_7,
+						isnull((select sum(StudentCount) from @studentCounts where DisabilityEdFactsCode <> 'MISSING' and LeaIdentifierSea = s.OrganizationStateId), 0) as col_2,
+						isnull((select sum(StudentCount) from @studentCountsWithRace where DisabilityEdFactsCode = 'MISSING' and RaceCode = @categorySetCode and LeaIdentifierSea = s.OrganizationStateId), 0) as col_3,
+						isnull((select sum(StudentCount) from @studentCounts where DisabilityEdFactsCode = 'MISSING' and LeaIdentifierSea = s.OrganizationStateId), 0) as col_4,
+						isnull((select sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode <> 'MISSING' and LeaIdentifierSea = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_5,
+						isnull((select sum(StudentCount) from @studentDisciplinesWithRace where DisabilityEdFactsCode <> 'MISSING' and RaceCode = @categorySetCode and LeaIdentifierSea = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_6,
+						isnull((select sum(StudentCount) from @studentDisciplines where DisabilityEdFactsCode = 'MISSING' and LeaIdentifierSea = s.OrganizationStateId and DisciplineDuration > 10.0), 0) as col_7,
 						null as col_8,
 						case when @stateWithDisabilities > 0 then convert(decimal(18,4),@stateWithDisabilitiesGreater10) / convert(decimal(18,4),@stateWithDisabilities) else null end as col_9,
 						null as col_10,
@@ -734,7 +734,7 @@ BEGIN
 					from @organizations s
 
 					OPEN r1_cursor
-					FETCH NEXT FROM r1_cursor INTO @StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
+					FETCH NEXT FROM r1_cursor INTO @StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
 
 					WHILE @@FETCH_STATUS = 0
 					BEGIN
@@ -747,8 +747,8 @@ BEGIN
 						insert into @results1
 						(
 							StateANSICode,
-							StateCode,
-							StateName,
+							StateAbbreviationCode,
+							StateAbbreviationDescription,
 							OrganizationNcesId,
 							OrganizationStateId,
 							OrganizationName,
@@ -778,12 +778,12 @@ BEGIN
 						)
 						values
 						(
-							@StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId,
+							@StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId,
 							@col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
 						)
 
 
-						FETCH NEXT FROM r1_cursor INTO @StateANSICode, @StateCode, @StateName,  @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
+						FETCH NEXT FROM r1_cursor INTO @StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription,  @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
 					END
 
 					CLOSE r1_cursor
@@ -798,8 +798,8 @@ BEGIN
 
 					select 
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesId,
 						OrganizationStateId,
 						OrganizationName,
@@ -829,7 +829,7 @@ BEGIN
 					from @results1
 
 					OPEN r2_cursor
-					FETCH NEXT FROM r2_cursor INTO @StateANSICode, @StateCode, @StateName,  @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId,@col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
+					FETCH NEXT FROM r2_cursor INTO @StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription,  @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId,@col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
 
 					WHILE @@FETCH_STATUS = 0
 					BEGIN
@@ -855,8 +855,8 @@ BEGIN
 							ReportLevel,
 							CategorySetCode,
 							StateANSICode,
-							StateCode,
-							StateName,
+							StateAbbreviationCode,
+							StateAbbreviationDescription,
 							OrganizationNcesId,
 							OrganizationStateId,
 							OrganizationName,
@@ -887,12 +887,12 @@ BEGIN
 						values
 						(
 							@reportCode, @reportYear, @reportLevel, @categorySetCode,
-							@StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId,
+							@StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId,
 							@col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
 						)
 
 
-						FETCH NEXT FROM r2_cursor INTO @StateANSICode, @StateCode, @StateName, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
+						FETCH NEXT FROM r2_cursor INTO @StateANSICode, @StateAbbreviationCode, @StateAbbreviationDescription, @OrganizationNcesId, @OrganizationStateId, @OrganizationName, @ParentOrganizationStateId, @col_1, @col_2, @col_3, @col_4, @col_5, @col_6, @col_7, @col_8, @col_9, @col_10, @col_11, @col_12a, @col_12b, @col_13, @col_14a, @col_14b, @col_14c, @col_14d, @col_15, @col_16, @col_17, @col_18
 					END
 
 					CLOSE r2_cursor
@@ -910,8 +910,8 @@ BEGIN
 				begin
 					declare @cohortStudentCounts as table (
 						StateANSICode nvarchar(100),
-						StateCode nvarchar(100),
-						StateName nvarchar(100),
+						StateAbbreviationCode nvarchar(100),
+						StateAbbreviationDescription nvarchar(100),
 						OrganizationNcesId nvarchar(100),
 						OrganizationStateId nvarchar(100),
 						OrganizationName nvarchar(500),
@@ -933,8 +933,8 @@ BEGIN
 						insert into @cohortStudentCounts
 						(
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesId,
 						OrganizationStateId,
 						OrganizationName,
@@ -948,12 +948,12 @@ BEGIN
 						)
 						SELECT DISTINCT 			
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier,
+						SeaOrganizationIdentifierSea,
 						SexDescription,
 						CohortYear,
 						SUM([4]) + SUM([5]) + SUM([6]),
@@ -961,32 +961,32 @@ BEGIN
 						SUM([5]), 
 						SUM([6])
 						FROM (select 
-						f.DimStudentId,
+						f.K12StudentId,
 						s.StateANSICode,
-						s.StateCode,
-						s.StateName,
-						s.SeaName,
-						s.SeaStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaNcesIdentifier
-							 when @reportLevel = 'sch' then SchoolNcesIdentifier
-							 else s.SeaStateIdentifier end as OrganizationNcesIdentifier,
-						case when @reportLevel = 'lea' then s.LeaStateIdentifier
-							 when @reportLevel = 'sch' then SchoolStateIdentifier
-							 else s.SeaStateIdentifier end as OrganizationStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaName
-							 when @reportLevel = 'sch' then SchoolName
-							 else s.SeaName end as OrganizationName,
+						s.StateAbbreviationCode,
+						s.StateAbbreviationDescription,
+						s.SeaOrganizationName,
+						s.SeaOrganizationIdentifierSea,
+						case when @reportLevel = 'lea' then s.LeaIdentifierNces
+							 when @reportLevel = 'sch' then SchoolIdentifierNces
+							 else s.SeaOrganizationIdentifierSea end as OrganizationNcesIdentifier,
+						case when @reportLevel = 'lea' then s.LeaIdentifierSea
+							 when @reportLevel = 'sch' then SchoolIdentifierSea
+							 else s.SeaOrganizationIdentifierSea end as OrganizationStateIdentifier,
+						case when @reportLevel = 'lea' then s.LeaOrganizationName
+							 when @reportLevel = 'sch' then s.NameOfInstitution
+							 else s.SeaOrganizationName end as OrganizationName,
 						demo.SexDescription,
 						Convert(int,SUBSTRING(Cohort,6,4)) as CohortYear,
 						(Convert(int,SUBSTRING(Cohort,6,4)) - Convert(int,SUBSTRING(Cohort,1,4))) as CohortLength,
 						f.StudentCount
-						from rds.FactStudentCounts f
-						inner join rds.DimFactTypes ft on f.DimFactTypeId = ft.DimFactTypeId
-						inner join rds.DimSchools s on f.DimSchoolId = s.DimSchoolId
-						inner join rds.DimStudents students on students.DimStudentId = f.DimStudentId
-						inner join rds.DimIdeaStatuses i on f.DimIdeaStatusId = i.DimIdeaStatusId
-						inner join rds.DimDemographics demo on demo.Dimdemographicid = f.Dimdemographicid
-						inner join rds.DimLeas l on l.DimLeaId = f.DimLeaId
+						from rds.FactK12StudentCounts f
+						inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
+						inner join rds.DimK12Schools s on f.K12SchoolId = s.DimK12SchoolId
+						inner join rds.DimPeople students on students.DimPersonId = f.K12StudentId
+						inner join rds.DimIdeaStatuses i on f.IdeaStatusId = i.DimIdeaStatusId
+						inner join rds.DimK12Demographics demo on demo.DimK12DemographicId = f.K12DemographicId
+						inner join rds.DimLeas l on l.DimLeaId = f.LeaId
 						where ft.FactTypeCode = @dimFactTypeCode and demo.SexEdFactsCode <> 'MISSING'
 						-- CIID-1963
 						
@@ -997,17 +997,17 @@ BEGIN
 									CASE WHEN ISNULL(s.ReportedFederally, 1) = 1 THEN 1 ELSE 0 END   
 								ELSE 1
 						END = 1
-						and f.DimSchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
+						and f.K12SchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
 						PIVOT
 						(	
 							COUNT(StudentCount)
 							FOR CohortLength IN ([4],[5],[6])
 						) AS PivotTable
 						group by StateANSICode,
-						StateCode,
-						StateName,
-						SeaName,
-						SeaStateIdentifier,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
+						SeaOrganizationName,
+						SeaOrganizationIdentifierSea,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
@@ -1020,8 +1020,8 @@ BEGIN
 					insert into @cohortStudentCounts
 						(
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesId,
 						OrganizationStateId,
 						OrganizationName,
@@ -1035,43 +1035,43 @@ BEGIN
 						)
 						SELECT DISTINCT 			
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier,
+						SeaOrganizationIdentifierSea,
 						CategoryCode,
 						CohortYear,
 						SUM([4]) + SUM([5]) + SUM([6]),
 						SUM([4]), 
 						SUM([5]), 
 						SUM([6])
-						FROM (select f.DimStudentId,s.StateANSICode,s.StateCode,s.StateName,
-						s.SeaName,
-						s.SeaStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaNcesIdentifier
-							 when @reportLevel = 'sch' then SchoolNcesIdentifier
-							 else s.SeaStateIdentifier end as OrganizationNcesIdentifier,
-						case when @reportLevel = 'lea' then s.LeaStateIdentifier
-							 when @reportLevel = 'sch' then SchoolStateIdentifier
-							 else s.SeaStateIdentifier end as OrganizationStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaName
-							 when @reportLevel = 'sch' then SchoolName
-							 else s.SeaName end as OrganizationName,
+						FROM (select f.K12StudentId,s.StateANSICode,s.StateAbbreviationCode,s.StateAbbreviationDescription,
+						s.SeaOrganizationName,
+						s.SeaOrganizationIdentifierSea,
+						case when @reportLevel = 'lea' then s.LeaIdentifierNces
+							 when @reportLevel = 'sch' then SchoolIdentifierNces
+							 else s.SeaOrganizationIdentifierSea end as OrganizationNcesIdentifier,
+						case when @reportLevel = 'lea' then s.LeaIdentifierSea
+							 when @reportLevel = 'sch' then SchoolIdentifierSea
+							 else s.SeaOrganizationIdentifierSea end as OrganizationStateIdentifier,
+						case when @reportLevel = 'lea' then s.LeaOrganizationName
+							 when @reportLevel = 'sch' then s.NameOfInstitution
+							 else s.SeaOrganizationName end as OrganizationName,
 						CASE WHEN i.DisabilityEdFactsCode <> 'MISSING' THEN 'Students With Disabilities (Rate)'
 							 WHEN i.DisabilityEdFactsCode = 'MISSING' THEN 'Students Without Disabilities (Rate)' END as CategoryCode,
 						Convert(int,SUBSTRING(Cohort,6,4)) as CohortYear,
 						(Convert(int,SUBSTRING(Cohort,6,4)) - Convert(int,SUBSTRING(Cohort,1,4))) as CohortLength,
 						f.StudentCount
-						from rds.FactStudentCounts f
-						inner join rds.DimFactTypes ft on f.DimFactTypeId = ft.DimFactTypeId
-						inner join rds.DimSchools s on f.DimSchoolId = s.DimSchoolId
-						inner join rds.DimStudents students on students.DimStudentId = f.DimStudentId
-						inner join rds.DimIdeaStatuses i on f.DimIdeaStatusId = i.DimIdeaStatusId
-						inner join rds.DimLeas l on l.DimLeaID = f.DimLeaId
+						from rds.FactK12StudentCounts f
+						inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
+						inner join rds.DimK12Schools s on f.K12SchoolId = s.DimK12SchoolId
+						inner join rds.DimPeople students on students.DimPersonId = f.K12StudentId
+						inner join rds.DimIdeaStatuses i on f.IdeaStatusId = i.DimIdeaStatusId
+						inner join rds.DimLeas l on l.DimLeaID = f.LeaId
 						where ft.FactTypeCode = @dimFactTypeCode 
-						and f.DimSchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear
+						and f.K12SchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear
 						-- CIID-1963
 						and CASE 
 								WHEN @reportLevel = 'lea' THEN 
@@ -1081,27 +1081,27 @@ BEGIN
 								ELSE 1
 						END = 1
 						UNION
-						select distinct f.DimStudentId,s.StateANSICode,s.StateCode,s.StateName,
-						s.SeaName,
-						s.SeaStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaNcesIdentifier
-							 when @reportLevel = 'sch' then SchoolNcesIdentifier
-							 else s.SeaStateIdentifier end as OrganizationNcesIdentifier,
-						case when @reportLevel = 'lea' then s.LeaStateIdentifier
-							 when @reportLevel = 'sch' then SchoolStateIdentifier
-							 else s.SeaStateIdentifier end as OrganizationStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaName
-							 when @reportLevel = 'sch' then SchoolName
-							 else s.SeaName end as OrganizationName,
+						select distinct f.K12StudentId,s.StateANSICode,s.StateAbbreviationCode,s.StateAbbreviationDescription,
+						s.SeaOrganizationName,
+						s.SeaOrganizationIdentifierSea,
+						case when @reportLevel = 'lea' then s.LeaIdentifierNces
+							 when @reportLevel = 'sch' then SchoolIdentifierNces
+							 else s.SeaOrganizationIdentifierSea end as OrganizationNcesIdentifier,
+						case when @reportLevel = 'lea' then s.LeaIdentifierSea
+							 when @reportLevel = 'sch' then SchoolIdentifierSea
+							 else s.SeaOrganizationIdentifierSea end as OrganizationStateIdentifier,
+						case when @reportLevel = 'lea' then s.LeaOrganizationName
+							 when @reportLevel = 'sch' then s.NameOfInstitution
+							 else s.SeaOrganizationName end as OrganizationName,
 						'All Students (Rate)' as CategoryCode,
 						Convert(int,SUBSTRING(Cohort,6,4)) as CohortYear,
 						(Convert(int,SUBSTRING(Cohort,6,4)) - Convert(int,SUBSTRING(Cohort,1,4))) as CohortLength,
 						f.StudentCount
-						from rds.FactStudentCounts f
-						inner join rds.DimFactTypes ft on f.DimFactTypeId = ft.DimFactTypeId
-						inner join rds.DimSchools s on f.DimSchoolId = s.DimSchoolId
-						inner join rds.DimStudents students on students.DimStudentId = f.DimStudentId
-						inner join rds.DimLeas l on l.DimLeaId = f.DimLeaId
+						from rds.FactK12StudentCounts f
+						inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
+						inner join rds.DimK12Schools s on f.K12SchoolId = s.DimK12SchoolId
+						inner join rds.DimPeople students on students.DimPersonId = f.K12StudentId
+						inner join rds.DimLeas l on l.DimLeaId = f.LeaId
 						where ft.FactTypeCode = @dimFactTypeCode
 						-- CIID-1963
 						and CASE 
@@ -1111,21 +1111,21 @@ BEGIN
 									CASE WHEN ISNULL(s.ReportedFederally, 1) = 1 THEN 1 ELSE 0 END   
 								ELSE 1
 						END = 1
-						and f.DimSchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
+						and f.K12SchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
 						PIVOT
 						(	
 							COUNT(StudentCount)
 							FOR CohortLength IN ([4],[5],[6])
 						) AS PivotTable
 						group by StateANSICode,
-						StateCode,
-						StateName,
-						SeaName,
-						SeaStateIdentifier,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
+						SeaOrganizationName,
+						SeaOrganizationIdentifierSea,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier, CohortYear, CategoryCode
+						SeaOrganizationIdentifierSea, CohortYear, CategoryCode
 						
 					end
 					else if @categorySetCode = 'disabilitytype'
@@ -1134,8 +1134,8 @@ BEGIN
 						insert into @cohortStudentCounts
 						(
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesId,
 						OrganizationStateId,
 						OrganizationName,
@@ -1149,12 +1149,12 @@ BEGIN
 						)
 						SELECT DISTINCT 			
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier,
+						SeaOrganizationIdentifierSea,
 						DisabilityEdFactsCode as CategoryCode,
 						CohortYear,
 						SUM([4]) + SUM([5]) + SUM([6]),
@@ -1162,31 +1162,31 @@ BEGIN
 						SUM([5]), 
 						SUM([6])
 						FROM (select 
-						f.DimStudentId,
+						f.K12StudentId,
 						s.StateANSICode,
-						s.StateCode,
-						s.StateName,
-						s.SeaName,
-						s.SeaStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaNcesIdentifier
-							 when @reportLevel = 'sch' then SchoolNcesIdentifier
-							 else s.SeaStateIdentifier end as OrganizationNcesIdentifier,
-						case when @reportLevel = 'lea' then s.LeaStateIdentifier
-							 when @reportLevel = 'sch' then SchoolStateIdentifier
-							 else s.SeaStateIdentifier end as OrganizationStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaName
-							 when @reportLevel = 'sch' then SchoolName
-							 else s.SeaName end as OrganizationName,
+						s.StateAbbreviationCode,
+						s.StateAbbreviationDescription,
+						s.SeaOrganizationName,
+						s.SeaOrganizationIdentifierSea,
+						case when @reportLevel = 'lea' then s.LeaIdentifierNces
+							 when @reportLevel = 'sch' then SchoolIdentifierNces
+							 else s.SeaOrganizationIdentifierSea end as OrganizationNcesIdentifier,
+						case when @reportLevel = 'lea' then s.LeaIdentifierSea
+							 when @reportLevel = 'sch' then SchoolIdentifierSea
+							 else s.SeaOrganizationIdentifierSea end as OrganizationStateIdentifier,
+						case when @reportLevel = 'lea' then s.LeaOrganizationName
+							 when @reportLevel = 'sch' then s.NameOfInstitution
+							 else s.SeaOrganizationName end as OrganizationName,
 						i.DisabilityDescription as DisabilityEdFactsCode,
 						Convert(int,SUBSTRING(Cohort,6,4)) as CohortYear,
 						(Convert(int,SUBSTRING(Cohort,6,4)) - Convert(int,SUBSTRING(Cohort,1,4))) as CohortLength,
 						f.StudentCount
-						from rds.FactStudentCounts f
-						inner join rds.DimFactTypes ft on f.DimFactTypeId = ft.DimFactTypeId
-						inner join rds.DimSchools s on f.DimSchoolId = s.DimSchoolId
-						inner join rds.DimStudents students on students.DimStudentId = f.DimStudentId
-						inner join rds.DimIdeaStatuses i on f.DimIdeaStatusId = i.DimIdeaStatusId
-						inner join rds.DimLeas l on l.DimLeaId = f.DimLeaId
+						from rds.FactK12StudentCounts f
+						inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
+						inner join rds.DimK12Schools s on f.K12SchoolId = s.DimK12SchoolId
+						inner join rds.DimPeople students on students.DimPersonId = f.K12StudentId
+						inner join rds.DimIdeaStatuses i on f.IdeaStatusId = i.DimIdeaStatusId
+						inner join rds.DimLeas l on l.DimLeaId = f.LeaId
 						where ft.FactTypeCode = @dimFactTypeCode and i.DisabilityEdFactsCode <> 'MISSING'
 						-- CIID-1963
 						and CASE 
@@ -1196,21 +1196,21 @@ BEGIN
 									CASE WHEN ISNULL(s.ReportedFederally, 1) = 1 THEN 1 ELSE 0 END   
 								ELSE 1
 						END = 1
-						and f.DimSchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
+						and f.K12SchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
 						PIVOT
 						(	
 							COUNT(StudentCount)
 							FOR CohortLength IN ([4],[5],[6])
 						) AS PivotTable
 						group by StateANSICode,
-						StateCode,
-						StateName,
-						SeaName,
-						SeaStateIdentifier,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
+						SeaOrganizationName,
+						SeaOrganizationIdentifierSea,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier,DisabilityEdFactsCode, CohortYear
+						SeaOrganizationIdentifierSea,DisabilityEdFactsCode, CohortYear
 						END
 					else if @categorySetCode = 'raceethnicity'
 					begin
@@ -1218,8 +1218,8 @@ BEGIN
 					insert into @cohortStudentCounts
 						(
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesId,
 						OrganizationStateId,
 						OrganizationName,
@@ -1233,12 +1233,12 @@ BEGIN
 						)
 						SELECT DISTINCT 			
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier,
+						SeaOrganizationIdentifierSea,
 						RaceCode,
 						CohortYear,
 						SUM([4]) + SUM([5]) + SUM([6]),
@@ -1246,32 +1246,32 @@ BEGIN
 						SUM([5]), 
 						SUM([6])
 						FROM (select 
-						f.DimStudentId,
+						f.K12StudentId,
 						s.StateANSICode,
-						s.StateCode,
-						s.StateName,
-						s.SeaName,
-						s.SeaStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaNcesIdentifier
-							 when @reportLevel = 'sch' then SchoolNcesIdentifier
-							 else s.SeaStateIdentifier end as OrganizationNcesIdentifier,
-						case when @reportLevel = 'lea' then s.LeaStateIdentifier
-							 when @reportLevel = 'sch' then SchoolStateIdentifier
-							 else s.SeaStateIdentifier end as OrganizationStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaName
-							 when @reportLevel = 'sch' then SchoolName
-							 else s.SeaName end as OrganizationName,
+						s.StateAbbreviationCode,
+						s.StateAbbreviationDescription,
+						s.SeaOrganizationName,
+						s.SeaOrganizationIdentifierSea,
+						case when @reportLevel = 'lea' then s.LeaIdentifierNces
+							 when @reportLevel = 'sch' then SchoolIdentifierNces
+							 else s.SeaOrganizationIdentifierSea end as OrganizationNcesIdentifier,
+						case when @reportLevel = 'lea' then s.LeaIdentifierSea
+							 when @reportLevel = 'sch' then SchoolIdentifierSea
+							 else s.SeaOrganizationIdentifierSea end as OrganizationStateIdentifier,
+						case when @reportLevel = 'lea' then s.LeaOrganizationName
+							 when @reportLevel = 'sch' then s.NameOfInstitution
+							 else s.SeaOrganizationName end as OrganizationName,
 						r.RaceDescription as RaceCode,
 						Convert(int,SUBSTRING(Cohort,6,4)) as CohortYear,
 						(Convert(int,SUBSTRING(Cohort,6,4)) - Convert(int,SUBSTRING(Cohort,1,4))) as CohortLength,
 						f.StudentCount
-						from rds.FactStudentCounts f
-						inner join rds.DimFactTypes ft on f.DimFactTypeId = ft.DimFactTypeId
-						inner join rds.DimSchools s on f.DimSchoolId = s.DimSchoolId
-						inner join rds.DimStudents students on students.DimStudentId = f.DimStudentId
-						inner join rds.DimIdeaStatuses i on f.DimIdeaStatusId = i.DimIdeaStatusId
-						inner join rds.DimRaces r on f.DimRaceId = r.DimRaceId and ft.DimFactTypeId = r.DimFactTypeId
-						inner join rds.DimLeas l on l.DimLeaId = f.DimLeaId
+						from rds.FactK12StudentCounts f
+						inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
+						inner join rds.DimK12Schools s on f.K12SchoolId = s.DimK12SchoolId
+						inner join rds.DimPeople students on students.DimPersonId = f.K12StudentId
+						inner join rds.DimIdeaStatuses i on f.IdeaStatusId = i.DimIdeaStatusId
+						inner join rds.DimRaces r on f.RaceId = r.DimRaceId --and ft.DimFactTypeId = r.
+						inner join rds.DimLeas l on l.DimLeaId = f.LeaId
 						where ft.FactTypeCode = @dimFactTypeCode
 						-- CIID-1963
 						and CASE 
@@ -1281,21 +1281,21 @@ BEGIN
 									CASE WHEN ISNULL(s.ReportedFederally, 1) = 1 THEN 1 ELSE 0 END   
 								ELSE 1
 						END = 1
-						and f.DimSchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
+						and f.K12SchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
 						PIVOT
 						(	
 							COUNT(StudentCount)
 							FOR CohortLength IN ([4],[5],[6])
 						) AS PivotTable
 						group by StateANSICode,
-						StateCode,
-						StateName,
-						SeaName,
-						SeaStateIdentifier,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
+						SeaOrganizationName,
+						SeaOrganizationIdentifierSea,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier, CohortYear, RaceCode
+						SeaOrganizationIdentifierSea, CohortYear, RaceCode
 						
 					end
 					else if @categorySetCode = 'cteparticipation'
@@ -1304,8 +1304,8 @@ BEGIN
 					insert into @cohortStudentCounts
 						(
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesId,
 						OrganizationStateId,
 						OrganizationName,
@@ -1319,12 +1319,12 @@ BEGIN
 						)
 						SELECT DISTINCT 			
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier,
+						SeaOrganizationIdentifierSea,
 						CteProgramEdFactsCode,
 						CohortYear,
 						SUM([4]) + SUM([5]) + SUM([6]),
@@ -1332,33 +1332,33 @@ BEGIN
 						SUM([5]), 
 						SUM([6])
 						FROM (select 
-						f.DimStudentId,
+						f.K12StudentId,
 						s.StateANSICode,
-						s.StateCode,
-						s.StateName,
-						s.SeaName,
-						s.SeaStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaNcesIdentifier
-							 when @reportLevel = 'sch' then SchoolNcesIdentifier
-							 else s.SeaStateIdentifier end as OrganizationNcesIdentifier,
-						case when @reportLevel = 'lea' then s.LeaStateIdentifier
-							 when @reportLevel = 'sch' then SchoolStateIdentifier
-							 else s.SeaStateIdentifier end as OrganizationStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaName
-							 when @reportLevel = 'sch' then SchoolName
-							 else s.SeaName end as OrganizationName,
-						prog.CteProgramDescription as CteProgramEdFactsCode,
+						s.StateAbbreviationCode,
+						s.StateAbbreviationDescription,
+						s.SeaOrganizationName,
+						s.SeaOrganizationIdentifierSea,
+						case when @reportLevel = 'lea' then s.LeaIdentifierNces
+							 when @reportLevel = 'sch' then SchoolIdentifierNces
+							 else s.SeaOrganizationIdentifierSea end as OrganizationNcesIdentifier,
+						case when @reportLevel = 'lea' then s.LeaIdentifierSea
+							 when @reportLevel = 'sch' then SchoolIdentifierSea
+							 else s.SeaOrganizationIdentifierSea end as OrganizationStateIdentifier,
+						case when @reportLevel = 'lea' then s.LeaOrganizationName
+							 when @reportLevel = 'sch' then s.NameOfInstitution
+							 else s.SeaOrganizationName end as OrganizationName,
+						prog.CteParticipantCode as CteProgramEdFactsCode,
 						Convert(int,SUBSTRING(Cohort,6,4)) as CohortYear,
 						(Convert(int,SUBSTRING(Cohort,6,4)) - Convert(int,SUBSTRING(Cohort,1,4))) as CohortLength,
 						f.StudentCount
-						from rds.FactStudentCounts f
-						inner join rds.DimFactTypes ft on f.DimFactTypeId = ft.DimFactTypeId
-						inner join rds.DimSchools s on f.DimSchoolId = s.DimSchoolId
-						inner join rds.DimStudents students on students.DimStudentId = f.DimStudentId
-						inner join rds.DimIdeaStatuses i on f.DimIdeaStatusId = i.DimIdeaStatusId
-						inner join rds.DimCteStatuses prog on prog.DimCteStatusId = f.DimCteStatusId
-						inner join rds.DimLeas l on l.DimLeaId = f.DimLeaId
-						where ft.FactTypeCode = @dimFactTypeCode and prog.CteProgramEdFactsCode <> 'MISSING'
+						from rds.FactK12StudentCounts f
+						inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
+						inner join rds.DimK12Schools s on f.K12SchoolId = s.DimK12SchoolId
+						inner join rds.DimPeople students on students.DimPersonId = f.K12StudentId
+						inner join rds.DimIdeaStatuses i on f.IdeaStatusId = i.DimIdeaStatusId
+						inner join rds.DimCteStatuses prog on prog.DimCteStatusId = f.CteStatusId
+						inner join rds.DimLeas l on l.DimLeaId = f.LeaId
+						where ft.FactTypeCode = @dimFactTypeCode and prog.CteParticipantEdFactsCode <> 'MISSING'
 						-- CIID-1963
 						and CASE 
 								WHEN @reportLevel = 'lea' THEN 
@@ -1367,21 +1367,21 @@ BEGIN
 									CASE WHEN ISNULL(s.ReportedFederally, 1) = 1 THEN 1 ELSE 0 END   
 								ELSE 1
 						END = 1
-						and f.DimSchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
+						and f.K12SchoolId <> -1 and students.Cohort is not null and SUBSTRING(Cohort,6,4) = @reportYear) AS SourceTable
 						PIVOT
 						(	
 							COUNT(StudentCount)
 							FOR CohortLength IN ([4],[5],[6])
 						) AS PivotTable
 						group by StateANSICode,
-						StateCode,
-						StateName,
-						SeaName,
-						SeaStateIdentifier,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
+						SeaOrganizationName,
+						SeaOrganizationIdentifierSea,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier, CohortYear, CteProgramEdFactsCode
+						SeaOrganizationIdentifierSea, CohortYear, CteProgramEdFactsCode
 						
 					end
 					else if @categorySetCode = 'exitingspeceducation'
@@ -1390,8 +1390,8 @@ BEGIN
 					insert into @cohortStudentCounts
 						(
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesId,
 						OrganizationStateId,
 						OrganizationName,
@@ -1405,12 +1405,12 @@ BEGIN
 						)
 						SELECT DISTINCT 			
 						StateANSICode,
-						StateCode,
-						StateName,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier,
+						SeaOrganizationIdentifierSea,
 						CategoryCode,
 						CohortYear,
 						SUM([4]) + SUM([5]) + SUM([6]),
@@ -1420,29 +1420,29 @@ BEGIN
 						FROM (select 
 						f.DimStudentId,
 						s.StateANSICode,
-						s.StateCode,
-						s.StateName,
-						s.SeaName,
-						s.SeaStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaNcesIdentifier
-							 when @reportLevel = 'sch' then SchoolNcesIdentifier
-							 else s.SeaStateIdentifier end as OrganizationNcesIdentifier,
-						case when @reportLevel = 'lea' then s.LeaStateIdentifier
-							 when @reportLevel = 'sch' then SchoolStateIdentifier
-							 else s.SeaStateIdentifier end as OrganizationStateIdentifier,
-						case when @reportLevel = 'lea' then s.LeaName
-							 when @reportLevel = 'sch' then SchoolName
-							 else s.SeaName end as OrganizationName,
+						s.StateAbbreviationCode,
+						s.StateAbbreviationDescription,
+						s.SeaOrganizationName,
+						s.SeaOrganizationIdentifierSea,
+						case when @reportLevel = 'lea' then s.LeaIdentifierNces
+							 when @reportLevel = 'sch' then SchoolIdentifierNces
+							 else s.SeaOrganizationIdentifierSea end as OrganizationNcesIdentifier,
+						case when @reportLevel = 'lea' then s.LeaIdentifierSea
+							 when @reportLevel = 'sch' then SchoolIdentifierSea
+							 else s.SeaOrganizationIdentifierSea end as OrganizationStateIdentifier,
+						case when @reportLevel = 'lea' then s.LeaOrganizationName
+							 when @reportLevel = 'sch' then NameOfInstitution
+							 else s.SeaOrganizationName end as OrganizationName,
 						'Exited Special Education and Returned to Regular Education' as CategoryCode,
 						Convert(int,SUBSTRING(Cohort,6,4)) as CohortYear,
 						(Convert(int,SUBSTRING(Cohort,6,4)) - Convert(int,SUBSTRING(Cohort,1,4))) as CohortLength,
 						f.StudentCount
-						from rds.FactStudentCounts f
-						inner join rds.DimFactTypes ft on f.DimFactTypeId = ft.DimFactTypeId
-						inner join rds.DimSchools s on f.DimSchoolId = s.DimSchoolId
-						inner join rds.DimStudents students on students.DimStudentId = f.DimStudentId
-						inner join rds.DimIdeaStatuses i on f.DimIdeaStatusId = i.DimIdeaStatusId
-						inner join rds.DimLeas l on l.DimLeaId = f.DimLeaId
+						from rds.FactK12StudentCounts f
+						inner join rds.DimFactTypes ft on f.FactTypeId = ft.DimFactTypeId
+						inner join rds.DimK12Schools s on f.K12SchoolId = s.DimK12SchoolId
+						inner join rds.DimPeople students on students.DimPersonId = f.K12StudentId
+						inner join rds.DimIdeaStatuses i on f.IdeaStatusId = i.DimIdeaStatusId
+						inner join rds.DimLeas l on l.DimLeaId = f.LeaId
 						where ft.FactTypeCode = @dimFactTypeCode and i.BasisOfExitEdFactsCode <> 'MISSING'
 						-- CIID-1963
 						and CASE 
@@ -1459,14 +1459,14 @@ BEGIN
 							FOR CohortLength IN ([4],[5],[6])
 						) AS PivotTable
 						group by StateANSICode,
-						StateCode,
-						StateName,
-						SeaName,
-						SeaStateIdentifier,
+						StateAbbreviationCode,
+						StateAbbreviationDescription,
+						SeaOrganizationName,
+						SeaOrganizationIdentifierSea,
 						OrganizationNcesIdentifier,
 						OrganizationStateIdentifier,
 						OrganizationName,
-						SeaStateIdentifier, CohortYear, CategoryCode
+						SeaOrganizationIdentifierSea, CohortYear, CategoryCode
 						
 					end
 
@@ -1477,8 +1477,8 @@ BEGIN
 							ReportLevel,
 							CategorySetCode,
 							StateANSICode,
-							StateCode,
-							StateName,
+							StateAbbreviationCode,
+							StateAbbreviationDescription,
 							OrganizationNcesId,
 							OrganizationStateId,
 							OrganizationName,
@@ -1509,7 +1509,7 @@ BEGIN
 						)
 						SELECT	
 						@reportCode, CohortYear, @reportLevel, @categorySetCode,
-						StateANSICode, StateCode, StateName, OrganizationNcesId, OrganizationStateId, OrganizationName, ParentOrganizationStateId,CategoryCode,
+						StateANSICode, StateAbbreviationCode, StateAbbreviationDescription, OrganizationNcesId, OrganizationStateId, OrganizationName, ParentOrganizationStateId,CategoryCode,
 						null as col_1, CohortTotal, 
 						FourYrCohortCount, FiveYrCohortCount, SixYrCohortCount,
 						CASE WHEN CohortTotal > 0 THEN FourYrCohortCount / CohortTotal ELSE 0 END,
@@ -1547,12 +1547,12 @@ BEGIN
 					ReportLevel,
 					CategorySetCode,
 					StateANSICode,
-					StateCode,
-					StateName,
-					OrganizationNcesId,
-					OrganizationStateId,
+					StateAbbreviationCode,
+					StateAbbreviationDescription,
+					OrganizationIdentifierNces,
+					OrganizationIdentifierSea,
 					OrganizationName,
-					ParentOrganizationStateId,
+					ParentOrganizationIdentifierSea,
 					Category1,
 					col_1,
 					col_2,
@@ -1592,8 +1592,8 @@ BEGIN
 					ReportLevel,
 					CategorySetCode,
 					StateANSICode,
-					StateCode,
-					StateName,
+					StateAbbreviationCode,
+					StateAbbreviationDescription,
 					OrganizationNcesId,
 					OrganizationStateId,
 					OrganizationName,
@@ -1642,8 +1642,8 @@ BEGIN
 					ReportLevel,
 					CategorySetCode,
 					StateANSICode,
-					StateCode,
-					StateName,
+					StateAbbreviationCode,
+					StateAbbreviationDescription,
 					OrganizationNcesId,
 					OrganizationStateId,
 					OrganizationName,
