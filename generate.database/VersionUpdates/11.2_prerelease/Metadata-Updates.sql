@@ -46,3 +46,8 @@ Where ToggleQuestionId = @questionId
 
 Update app.ToggleQuestionOptions set OptionText = 'Yes' Where ToggleQuestionId = @questionId and OptionSequence = 1
 Update app.ToggleQuestionOptions set OptionText = 'No' Where ToggleQuestionId = @questionId and OptionSequence = 2
+
+exec app.Rollover_Previous_Year_Metadata 'indicator4a', 2019, 2020
+exec app.Rollover_Previous_Year_Metadata 'indicator4a', 2020, 2021
+exec app.Rollover_Previous_Year_Metadata 'indicator4a', 2021, 2022
+exec app.Rollover_Previous_Year_Metadata 'indicator4a', 2022, 2023

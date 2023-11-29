@@ -4,6 +4,8 @@ BEGIN
 	ALTER TABLE RDS.ReportEDFactsOrganizationCounts ADD CharterSchoolAuthorizerType nvarchar(100);
 END
 
+ALTER TABLE RDS.FactCustomCounts ALTER COLUMN OrganizationIdentifierNces nvarchar(100) NULL
+
 --Update the Age Group Taught values for EDFacts to the new PVs  CIID-5923
 UPDATE rds.DimK12StaffStatuses
 SET SpecialEducationAgeGroupTaughtEdFactsCode = '3TO5NOTK'
