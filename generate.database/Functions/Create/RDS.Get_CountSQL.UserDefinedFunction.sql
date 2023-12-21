@@ -280,7 +280,7 @@ BEGIN
 		set @idFieldsSQL = '
 		s.StateANSICode as OrganizationIdentifierNces,
 		s.SeaOrganizationIdentifierSea as OrganizationIdentifierSea,
-		s.StateAbbreviationDescription as OrganizationName,
+		s.SeaOrganizationName as OrganizationName,
 		null as ParentOrganizationIdentifierSea'
 	end
 	else if @reportLevel = 'lea'
@@ -296,7 +296,7 @@ BEGIN
 		set @idFieldsSQL = '
 			s.SchoolIdentifierNces as OrganizationIdentifierNces,
 			s.SchoolIdentifierSea as OrganizationIdentifierSea,
-			s.SeaOrganizationName as OrganizationName,
+			s.NameOfInstitution as OrganizationName,
 			s.LeaIdentifierSea as ParentOrganizationIdentifierSea'
 	end
 
@@ -873,11 +873,11 @@ BEGIN
 		end
 		else if @dimensionTable = 'DimFirearms'
 		begin
-			set @dimensionPrimaryKey = 'DimFirearmsId'
+			set @dimensionPrimaryKey = 'DimFirearmId'
 		end
-		else if @dimensionTable = 'DimFirearmDisciplines'
+		else if @dimensionTable = 'DimFirearmDisciplineStatuses'
 		begin
-			set @dimensionPrimaryKey = 'DimFirearmDisciplineId'
+			set @dimensionPrimaryKey = 'DimFirearmDisciplineStatusId'
 		end
 		else if @dimensionTable = 'DimGradeLevels'
 		begin
@@ -1641,6 +1641,8 @@ BEGIN
 						
 						set @sqlCategoryReturnField = ' 
 							case 
+								WHEN rdar.AssessmentRegistrationParticipationIndicatorCode = ''DidNotParticipate'' THEN ''NPART''
+								WHEN rdar.ReasonNotTestedCode = ''03454'' THEN ''MEDEXEMPT''
 								WHEN assmnt.AssessmentTypeAdministeredCode =''REGASSWOACC'' THEN ''REGPARTWOACC''	
 								WHEN assmnt.AssessmentTypeAdministeredCode =''REGASSWACC'' THEN ''REGPARTWACC''
 								WHEN assmnt.AssessmentTypeAdministeredCode =''ALTASSALTACH'' THEN ''ALTPARTALTACH''
@@ -1648,8 +1650,6 @@ BEGIN
 								WHEN assmnt.AssessmentTypeAdministeredCode =''ADVASMTWACC'' THEN ''PADVASMWACC''
 								WHEN assmnt.AssessmentTypeAdministeredCode =''IADAPLASMTWOACC'' THEN ''PIADAPLASMWOACC''
 								WHEN assmnt.AssessmentTypeAdministeredCode =''IADAPLASMTWACC'' THEN ''PIADAPLASMWACC''
-								WHEN rdar.AssessmentRegistrationCompletionStatusCode = ''DidNotParticipate'' THEN ''NPART''
-								WHEN rdar.ReasonNotTestedCode = ''03454'' THEN ''MEDEXEMPT''
 								else ''MISSING''
 							end'
 					end
@@ -1658,6 +1658,8 @@ BEGIN
 						
 						set @sqlCategoryReturnField = ' 
 							case 
+								WHEN rdar.AssessmentRegistrationParticipationIndicatorCode = ''DidNotParticipate'' THEN ''NPART''
+								WHEN rdar.ReasonNotTestedCode = ''03454'' THEN ''MEDEXEMPT''
 								WHEN assmnt.AssessmentTypeAdministeredCode =''HSREGASMTIWOACC'' THEN ''PHSRGASMIWOACC''	
 								WHEN assmnt.AssessmentTypeAdministeredCode =''HSREGASMTIWACC'' THEN ''PHSRGASMIWACC''
 								WHEN assmnt.AssessmentTypeAdministeredCode =''ALTASSALTACH'' THEN ''ALTPARTALTACH''
@@ -1671,8 +1673,6 @@ BEGIN
 								WHEN assmnt.AssessmentTypeAdministeredCode =''IADAPLASMTWACC'' THEN ''PIADAPLASMWACC''
 								WHEN assmnt.AssessmentTypeAdministeredCode =''LSNRHSASMTWOACC'' THEN ''PLSNRHSASMWOACC''
 								WHEN assmnt.AssessmentTypeAdministeredCode =''LSNRHSASMTWACC'' THEN ''PLSNRHSASMWACC''
-								WHEN rdar.AssessmentRegistrationCompletionStatusCode = ''DidNotParticipate'' THEN ''NPART''
-								WHEN rdar.ReasonNotTestedCode = ''03454'' THEN ''MEDEXEMPT''
 								else ''MISSING''
 							end'
 					end
@@ -2377,7 +2377,7 @@ BEGIN
 		begin
 		set @sqlCountJoins = @sqlCountJoins + '
 			inner join (
-				select distinct rdp.K12StudentStudentIdentifierState, df.DimFirearmsId
+				select distinct rdp.K12StudentStudentIdentifierState, df.DimFirearmId
 				from rds.' + @factTable + ' fact '
 
 				if @reportLevel = 'lea'
@@ -2411,11 +2411,11 @@ BEGIN
 						ELSE -1
 					END <> -1
 				inner join rds.DimFirearms df 
-					on fact.FirearmsId = df.DimFirearmsId
+					on fact.FirearmId = df.DimFirearmId
 				where df.FirearmTypeEdFactsCode <> ''MISSING''
 			) rules 
 				on stu.K12StudentStudentIdentifierState = rules.K12StudentStudentIdentifierState 
-				and fact.FirearmsId = rules.DimFirearmsId '
+				and fact.FirearmId = rules.DimFirearmId '
 		end
 	else if @reportCode in ('c089','edenvironmentdisabilitiesage3-5')
 		begin
@@ -6895,7 +6895,7 @@ BEGIN
 			END
 		END
 
-		if(@reportCode = 'c009')
+		if @reportCode = 'c009'
 		BEGIN
 
 				if(@toggleBasisOfExit = 0)
@@ -6932,12 +6932,20 @@ BEGIN
 				end
 		END
 
-		if(@reportCode = 'C040')
+		if @reportCode = 'C040'
 			BEGIN
 				set @sql = @sql + '  delete a from @reportData a
 					where a.' +  @factField + ' = 0   
 					AND HIGHSCHOOLDIPLOMATYPE NOT IN ( ' +  @toggleGradCompltrResponse + ')' 
 			END
+
+		if @reportCode in ('c175','c178','c179','c185','c188','c189')
+		begin
+				set @sql = @sql + ' delete a from @reportData a
+					where a.' +  @factField + ' = 0   
+					and a.RACE in (''MAP'',''MF'',''MHN'',''MPR'')
+				'	
+		end
 
 		if @reportCode in ('c175','c178','c179')
 		begin

@@ -8,21 +8,21 @@ AS
 		, AssessmentTitle
 		, AssessmentShortName
 		, AssessmentTypeCode
-		, sssrd1.InputCode AS AssessmentTypeMap
+		, ISNULL(sssrd1.InputCode, 'MISSING') AS AssessmentTypeMap
 		, AssessmentAcademicSubjectCode
-		, sssrd2.InputCode AS AssessmentAcademicSubjectMap
+		, ISNULL(sssrd2.InputCode, 'MISSING') AS AssessmentAcademicSubjectMap
 		, AssessmentTypeAdministeredCode
-		, sssrd3.InputCode AS AssessmentTypeAdministeredMap
+		, ISNULL(sssrd3.InputCode, 'MISSING') AS AssessmentTypeAdministeredMap
 		, AssessmentTypeAdministeredToEnglishLearnersCode
-		, sssrd4.InputCode AS AssessmentTypeAdministeredToEnglishLearnersMap
+		, ISNULL(sssrd4.InputCode, 'MISSING') AS AssessmentTypeAdministeredToEnglishLearnersMap
 	FROM rds.DimAssessments rda
 	CROSS JOIN (SELECT DISTINCT SchoolYear FROM staging.SourceSystemReferenceData) rsy
 	LEFT JOIN staging.SourceSystemReferenceData sssrd1
-		ON rda.AssessmentAcademicSubjectCode = sssrd1.OutputCode
+		ON rda.AssessmentTypeCode = sssrd1.OutputCode
 		AND sssrd1.TableName = 'RefAssessmentType'
 		AND rsy.SchoolYear = sssrd1.SchoolYear
 	LEFT JOIN staging.SourceSystemReferenceData sssrd2
-		ON rda.AssessmentTypeCode = sssrd2.OutputCode
+		ON rda.AssessmentAcademicSubjectCode = sssrd2.OutputCode
 		AND sssrd2.TableName = 'RefAcademicSubject'
 		AND rsy.SchoolYear = sssrd2.SchoolYear
 	LEFT JOIN staging.SourceSystemReferenceData sssrd3
