@@ -81,7 +81,6 @@ BEGIN
 			AND StateFullAcademicYearCode = 'MISSING'
 			AND LeaFullAcademicYearCode = 'MISSING'
 			AND SchoolFullAcademicYearCode = 'MISSING'
-			AND ReasonNotTestedCode = 'MISSING'
 			AND AssessmentRegistrationCompletionStatusCode = 'MISSING'
 
 		CREATE CLUSTERED INDEX ix_tempvwAssessmentRegistrations 
@@ -423,14 +422,14 @@ BEGIN
 				AND ISNULL(sar.AssessmentAdministrationStartDate, '1/1/1900') BETWEEN rdp.RecordStartDateTime AND ISNULL(rdp.RecordEndDateTime, @Today)
 		--assessments (rds)
 			LEFT JOIN #vwAssessments rda
-				ON ISNULL(sar.AssessmentIdentifier, '') = ISNULL(rda.AssessmentIdentifierState, '')
-				AND ISNULL(sar.AssessmentFamilyShortName, '') = ISNULL(rda.AssessmentFamilyShortName, '')
-				AND ISNULL(sar.AssessmentShortName, '') = ISNULL(rda.AssessmentShortName, '')
-				AND ISNULL(sar.AssessmentTitle, '') = ISNULL(rda.AssessmentTitle, '')
-				AND ISNULL(sar.AssessmentAcademicSubject, '') = ISNULL(rda.AssessmentAcademicSubjectMap, '')	--RefAcademicSubject
-				AND ISNULL(sar.AssessmentType, '') = ISNULL(rda.AssessmentTypeMap, '')	--RefAssessmentType
-				AND ISNULL(sar.AssessmentTypeAdministered, '') = ISNULL(rda.AssessmentTypeAdministeredMap, '')	--RefAssessmentTypeCildrenWithDisabilities
-				AND ISNULL(sar.AssessmentTypeAdministeredToEnglishLearners, '') = ISNULL(rda.AssessmentTypeAdministeredToEnglishLearnersMap, '')	--RefAssessmentTypeAdministeredToEnglishLearners
+				ON ISNULL(sar.AssessmentIdentifier, 'MISSING') = ISNULL(rda.AssessmentIdentifierState, '')
+				AND ISNULL(sar.AssessmentFamilyShortName, 'MISSING') = ISNULL(rda.AssessmentFamilyShortName, '')
+				AND ISNULL(sar.AssessmentShortName, 'MISSING') = ISNULL(rda.AssessmentShortName, '')
+				AND ISNULL(sar.AssessmentTitle, 'MISSING') = ISNULL(rda.AssessmentTitle, '')
+				AND ISNULL(sar.AssessmentAcademicSubject, 'MISSING') = ISNULL(rda.AssessmentAcademicSubjectMap, rda.AssessmentAcademicSubjectCode)	--RefAcademicSubject
+				AND ISNULL(sar.AssessmentType, 'MISSING') = ISNULL(rda.AssessmentTypeMap, rda.AssessmentTypeCode)	--RefAssessmentType
+				AND ISNULL(sar.AssessmentTypeAdministered, 'MISSING') = ISNULL(rda.AssessmentTypeAdministeredMap, rda.AssessmentTypeAdministeredCode)	--RefAssessmentTypeCildrenWithDisabilities
+				AND ISNULL(sar.AssessmentTypeAdministeredToEnglishLearners, 'MISSING') = ISNULL(rda.AssessmentTypeAdministeredToEnglishLearnersMap, rda.AssessmentTypeAdministeredToEnglishLearners)	--RefAssessmentTypeAdministeredToEnglishLearners
 				and sar.SchoolYear = rda.SchoolYear
 		--assessment results (rds)
 			LEFT JOIN RDS.vwDimAssessmentResults rdar
@@ -442,7 +441,7 @@ BEGIN
 				AND rdars.StateFullAcademicYearCode = 'MISSING'
 				AND rdars.LeaFullAcademicYearCode = 'MISSING'
 				AND rdars.SchoolFullAcademicYearCode = 'MISSING'
-				AND rdars.ReasonNotTestedCode = 'MISSING'
+				AND ISNULL(sar.AssessmentRegistrationReasonNotTested, 'MISSING') = ISNULL(rdars.ReasonNotTestedMap, rdars.ReasonNotTestedCode)	--RefReasonNotTested
 				AND rdars.AssessmentRegistrationCompletionStatusCode = 'MISSING'
 		--assessment administration (rds)
 			LEFT JOIN #tempAssessmentAdministrations rdaa
