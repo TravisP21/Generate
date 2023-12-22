@@ -183,7 +183,7 @@ BEGIN
 				AND ISNULL(trgt.AssessmentFamilyShortName, '') = ISNULL(src.AssessmentFamilyShortName, '')
 				AND ISNULL(trgt.AssessmentTitle, '') = ISNULL(src.AssessmentTitle, '')
 				AND ISNULL(trgt.AssessmentShortName, '') = ISNULL(src.AssessmentShortName, '')
-				AND ISNULL(trgt.AssessmentTypeCode, '') = ISNULL(src.AssessmentTypeCode, '')
+				AND ISNULL(trgt.AssessmentTypeCode, 'MISSING') = ISNULL(src.AssessmentTypeCode, 'MISSING')
 				AND ISNULL(trgt.AssessmentAcademicSubjectCode, 'MISSING') = ISNULL(src.AssessmentAcademicSubjectCode, 'MISSING')
 				AND ISNULL(trgt.AssessmentTypeAdministeredCode, 'MISSING') = ISNULL(src.AssessmentTypeAdministeredCode, 'MISSING')
 				AND ISNULL(trgt.AssessmentTypeAdministeredToEnglishLearnersCode, 'MISSING') = ISNULL(src.AssessmentTypeAdministeredToEnglishLearnersCode, 'MISSING')

@@ -422,14 +422,14 @@ BEGIN
 				AND ISNULL(sar.AssessmentAdministrationStartDate, '1/1/1900') BETWEEN rdp.RecordStartDateTime AND ISNULL(rdp.RecordEndDateTime, @Today)
 		--assessments (rds)
 			LEFT JOIN #vwAssessments rda
-				ON ISNULL(sar.AssessmentIdentifier, 'MISSING') = ISNULL(rda.AssessmentIdentifierState, '')
-				AND ISNULL(sar.AssessmentFamilyShortName, 'MISSING') = ISNULL(rda.AssessmentFamilyShortName, '')
-				AND ISNULL(sar.AssessmentShortName, 'MISSING') = ISNULL(rda.AssessmentShortName, '')
-				AND ISNULL(sar.AssessmentTitle, 'MISSING') = ISNULL(rda.AssessmentTitle, '')
+				ON ISNULL(sar.AssessmentIdentifier, 'MISSING') = ISNULL(rda.AssessmentIdentifierState, 'MISSING')
+				AND ISNULL(sar.AssessmentFamilyShortName, 'MISSING') = ISNULL(rda.AssessmentFamilyShortName, 'MISSING')
+				AND ISNULL(sar.AssessmentShortName, 'MISSING') = ISNULL(rda.AssessmentShortName, 'MISSING')
+				AND ISNULL(sar.AssessmentTitle, 'MISSING') = ISNULL(rda.AssessmentTitle, 'MISSING')
 				AND ISNULL(sar.AssessmentAcademicSubject, 'MISSING') = ISNULL(rda.AssessmentAcademicSubjectMap, rda.AssessmentAcademicSubjectCode)	--RefAcademicSubject
 				AND ISNULL(sar.AssessmentType, 'MISSING') = ISNULL(rda.AssessmentTypeMap, rda.AssessmentTypeCode)	--RefAssessmentType
 				AND ISNULL(sar.AssessmentTypeAdministered, 'MISSING') = ISNULL(rda.AssessmentTypeAdministeredMap, rda.AssessmentTypeAdministeredCode)	--RefAssessmentTypeCildrenWithDisabilities
-				AND ISNULL(sar.AssessmentTypeAdministeredToEnglishLearners, 'MISSING') = ISNULL(rda.AssessmentTypeAdministeredToEnglishLearnersMap, rda.AssessmentTypeAdministeredToEnglishLearners)	--RefAssessmentTypeAdministeredToEnglishLearners
+				AND ISNULL(sar.AssessmentTypeAdministeredToEnglishLearners, 'MISSING') = ISNULL(rda.AssessmentTypeAdministeredToEnglishLearnersMap, rda.AssessmentTypeAdministeredToEnglishLearnersCode)	--RefAssessmentTypeAdministeredToEnglishLearners
 				and sar.SchoolYear = rda.SchoolYear
 		--assessment results (rds)
 			LEFT JOIN RDS.vwDimAssessmentResults rdar
