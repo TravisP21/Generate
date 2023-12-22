@@ -423,9 +423,9 @@ BEGIN
 		--assessments (rds)
 			LEFT JOIN #vwAssessments rda
 				ON ISNULL(sar.AssessmentIdentifier, 'MISSING') = ISNULL(rda.AssessmentIdentifierState, 'MISSING')
-				AND ISNULL(sar.AssessmentFamilyShortName, 'MISSING') = ISNULL(rda.AssessmentFamilyShortName, 'MISSING')
-				AND ISNULL(sar.AssessmentShortName, 'MISSING') = ISNULL(rda.AssessmentShortName, 'MISSING')
-				AND ISNULL(sar.AssessmentTitle, 'MISSING') = ISNULL(rda.AssessmentTitle, 'MISSING')
+				--AND ISNULL(sar.AssessmentFamilyShortName, 'MISSING') = ISNULL(rda.AssessmentFamilyShortName, 'MISSING')
+				--AND ISNULL(sar.AssessmentShortName, 'MISSING') = ISNULL(rda.AssessmentShortName, 'MISSING')
+				--AND ISNULL(sar.AssessmentTitle, 'MISSING') = ISNULL(rda.AssessmentTitle, 'MISSING')
 				AND ISNULL(sar.AssessmentAcademicSubject, 'MISSING') = ISNULL(rda.AssessmentAcademicSubjectMap, rda.AssessmentAcademicSubjectCode)	--RefAcademicSubject
 				AND ISNULL(sar.AssessmentType, 'MISSING') = ISNULL(rda.AssessmentTypeMap, rda.AssessmentTypeCode)	--RefAssessmentType
 				AND ISNULL(sar.AssessmentTypeAdministered, 'MISSING') = ISNULL(rda.AssessmentTypeAdministeredMap, rda.AssessmentTypeAdministeredCode)	--RefAssessmentTypeCildrenWithDisabilities
