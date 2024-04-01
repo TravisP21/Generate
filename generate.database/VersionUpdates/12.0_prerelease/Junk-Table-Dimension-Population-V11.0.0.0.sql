@@ -2929,25 +2929,7 @@ INSERT INTO #ScedCodes VALUES
 	-- Populate DimRuralStatuses
 	------------------------------------------------
 
-	IF NOT EXISTS (SELECT 1 FROM RDS.DimRuralStatuses d WHERE d.DimRuralStatusId = -1) BEGIN
-		SET IDENTITY_INSERT RDS.DimRuralStatuses ON
-
-		INSERT INTO [RDS].[DimRuralStatuses]
-		([DimRuralStatusId]
-		,[ERSRuralUrbanContinuumCodeCode]
-		,[ERSRuralUrbanContinuumCodeDescription]
-		,[RuralResidencyStatusCode]
-		,[RuralResidencyStatusDescription])
-		VALUES (
-			-1
-			, 'MISSING'
-			, 'MISSING'
-			, 'MISSING'
-			, 'MISSING'
-			)
-
-		SET IDENTITY_INSERT RDS.DimRuralStatuses OFF
-	END
+	
 
 	CREATE TABLE #ERSRuralUrbanContinuumCode (ERSRuralUrbanContinuumCodeCode NVARCHAR(50), ERSRuralUrbanContinuumCodeDescription NVARCHAR(200))
 
@@ -2956,7 +2938,7 @@ INSERT INTO #ScedCodes VALUES
 	SELECT 
 		CedsOptionSetCode
 		, CedsOptionSetDescription
-	FROM [CEDS-Elements-V11.0.0.0].[CEDS].CedsOptionSetMapping
+	FROM [CEDS].CedsOptionSetMapping
 	WHERE CedsElementTechnicalName = 'ERSRuralUrbanContinuumCode'
 
 	CREATE TABLE #RuralResidencyStatusCode (RuralResidencyStatusCode NVARCHAR(50), RuralResidencyStatusDescription NVARCHAR(200))
@@ -2966,7 +2948,7 @@ INSERT INTO #ScedCodes VALUES
 	SELECT 
 		CedsOptionSetCode
 		, CedsOptionSetDescription
-	FROM [CEDS-Elements-V11.0.0.0].[CEDS].CedsOptionSetMapping
+	FROM [CEDS].CedsOptionSetMapping
 	WHERE CedsElementTechnicalName = 'RuralResidencyStatus'
 
 	INSERT INTO [RDS].[DimRuralStatuses]
@@ -2988,3 +2970,23 @@ INSERT INTO #ScedCodes VALUES
 
 	DROP TABLE #ERSRuralUrbanContinuumCode
 	DROP TABLE #RuralResidencyStatusCode
+
+	IF NOT EXISTS (SELECT 1 FROM RDS.DimRuralStatuses d WHERE d.DimRuralStatusId = -1) BEGIN
+		SET IDENTITY_INSERT RDS.DimRuralStatuses ON
+
+		INSERT INTO [RDS].[DimRuralStatuses]
+		([DimRuralStatusId]
+		,[ERSRuralUrbanContinuumCodeCode]
+		,[ERSRuralUrbanContinuumCodeDescription]
+		,[RuralResidencyStatusCode]
+		,[RuralResidencyStatusDescription])
+		VALUES (
+			-1
+			, 'MISSING'
+			, 'MISSING'
+			, 'MISSING'
+			, 'MISSING'
+			)
+
+		SET IDENTITY_INSERT RDS.DimRuralStatuses OFF
+	END
