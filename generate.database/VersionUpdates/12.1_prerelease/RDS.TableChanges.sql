@@ -1,16 +1,16 @@
-IF COL_LENGTH('RDS.DimNOrDStatuses', 'NeglectedOrDelinquentProgramTypeCode') IS NOT NULL
+IF COL_LENGTH('RDS.DimNOrDStatuses', 'NeglectedProgramTypeCode') IS NULL
 BEGIN
-	EXEC sp_rename 'RDS.DimNOrDStatuses.NeglectedOrDelinquentProgramTypeCode',  'NeglectedProgramTypeCode', 'COLUMN';
+	ALTER TABLE RDS.DimNOrDStatuses ADD NeglectedProgramTypeCode nvarchar(50);
 END
 
-IF COL_LENGTH('RDS.DimNOrDStatuses', 'NeglectedOrDelinquentProgramTypeDescription') IS NOT NULL
+IF COL_LENGTH('RDS.DimNOrDStatuses', 'NeglectedProgramTypeDescription') IS NULL
 BEGIN
-	EXEC sp_rename 'RDS.DimNOrDStatuses.NeglectedOrDelinquentProgramTypeDescription',  'NeglectedProgramTypeDescription', 'COLUMN';
+	ALTER TABLE RDS.DimNOrDStatuses ADD NeglectedProgramTypeDescription nvarchar(100);
 END
 
-IF COL_LENGTH('RDS.DimNOrDStatuses', 'NeglectedOrDelinquentProgramTypeEdFactsCode') IS NOT NULL
+IF COL_LENGTH('RDS.DimNOrDStatuses', 'NeglectedProgramTypeEdFactsCode') IS NULL
 BEGIN
-	EXEC sp_rename 'RDS.DimNOrDStatuses.NeglectedOrDelinquentProgramTypeEdFactsCode',  'NeglectedProgramTypeEdFactsCode', 'COLUMN';
+	ALTER TABLE RDS.DimNOrDStatuses ADD NeglectedProgramTypeEdFactsCode nvarchar(50);
 END
 
 IF COL_LENGTH('RDS.DimNOrDStatuses', 'DelinquentProgramTypeCode') IS NULL
@@ -28,9 +28,9 @@ BEGIN
 	ALTER TABLE RDS.DimNOrDStatuses ADD DelinquentProgramTypeEdFactsCode nvarchar(50);
 END
 
-IF COL_LENGTH('Staging.ProgramParticipationNorD', 'NeglectedOrDelinquentProgramType') IS NOT NULL
+IF COL_LENGTH('Staging.ProgramParticipationNorD', 'NeglectedProgramType') IS  NULL
 BEGIN
-	EXEC sp_rename 'Staging.ProgramParticipationNorD.NeglectedOrDelinquentProgramType',  'NeglectedProgramType', 'COLUMN';
+	ALTER TABLE Staging.ProgramParticipationNorD ADD NeglectedProgramType nvarchar(100);
 END
 
 IF COL_LENGTH('Staging.ProgramParticipationNorD', 'DelinquentProgramType') IS NULL
@@ -38,9 +38,9 @@ BEGIN
 	ALTER TABLE Staging.ProgramParticipationNorD ADD DelinquentProgramType nvarchar(100);
 END
 
-IF COL_LENGTH('RDS.ReportEDFactsK12StudentCounts', 'NEGLECTEDORDELINQUENTPROGRAMTYPE') IS NOT NULL
+IF COL_LENGTH('RDS.ReportEDFactsK12StudentCounts', 'NEGLECTEDPROGRAMTYPE') IS NULL
 BEGIN
-	EXEC sp_rename 'RDS.ReportEDFactsK12StudentCounts.NEGLECTEDORDELINQUENTPROGRAMTYPE',  'NEGLECTEDPROGRAMTYPE', 'COLUMN';
+	ALTER TABLE RDS.ReportEDFactsK12StudentCounts ADD NEGLECTEDPROGRAMTYPE nvarchar(50);
 END
 
 IF COL_LENGTH('RDS.ReportEDFactsK12StudentCounts', 'DELINQUENTPROGRAMTYPE') IS NULL
@@ -48,9 +48,9 @@ BEGIN
 	ALTER TABLE RDS.ReportEDFactsK12StudentCounts ADD DELINQUENTPROGRAMTYPE nvarchar(50);
 END
 
-IF COL_LENGTH('RDS.ReportEdFactsK12StudentAssessments', 'NEGLECTEDORDELINQUENTPROGRAMTYPE') IS NOT NULL
+IF COL_LENGTH('RDS.ReportEdFactsK12StudentAssessments', 'NEGLECTEDPROGRAMTYPE') IS NOT NULL
 BEGIN
-	EXEC sp_rename 'RDS.ReportEdFactsK12StudentAssessments.NEGLECTEDORDELINQUENTPROGRAMTYPE',  'NEGLECTEDPROGRAMTYPE', 'COLUMN';
+	ALTER TABLE RDS.ReportEDFactsK12StudentAssessments ADD NEGLECTEDPROGRAMTYPE nvarchar(50);
 END
 
 IF COL_LENGTH('RDS.ReportEdFactsK12StudentAssessments', 'DELINQUENTPROGRAMTYPE') IS NULL
