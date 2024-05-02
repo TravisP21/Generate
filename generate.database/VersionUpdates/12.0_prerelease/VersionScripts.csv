@@ -8,6 +8,10 @@ Views\\Drop,Debug.vwMembership_FactTable.View.sql
 Views\\Create,Debug.vwMembership_FactTable.View.sql
 Views\\Drop,Debug.vwDimTitleIStatuses.View.sql
 Views\\Create,Debug.vwDimTitleIStatuses.View.sql
+Views\\Drop,Debug.vwAssessments_FactTable.View.sql
+Views\\Create,Debug.vwAssessments_FactTable.View.sql
+Views\\Drop,RDS.vwAssessment_FactTable_C224.View.sql
+Views\\Create,RDS.vwAssessment_FactTable_C224.View.sql
 StoredProcedures\\Drop,Staging.Staging-to-FactK12StudentCounts_TitleI.StoredProcedure.sql
 StoredProcedures\\Create,Staging.Staging-to-FactK12StudentCounts_TitleI.StoredProcedure.sql
 VersionUpdates\\12.0_prerelease,UpdateDbVersion.sql,0

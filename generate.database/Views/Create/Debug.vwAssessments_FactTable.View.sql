@@ -1,6 +1,7 @@
 CREATE VIEW [Debug].[vwAssessments_FactTable] 
 AS
 	SELECT	Fact.K12StudentId
+			, SchoolYears.SchoolYear
 			, Students.K12StudentStudentIdentifierState
 			, Students.BirthDate
 			, Students.FirstName
@@ -17,6 +18,8 @@ AS
 			, Assess.AssessmentAcademicSubjectCode
 			, Assess.AssessmentTypeAdministeredCode
 			, Assess.AssessmentTypeAdministeredToEnglishLearnersCode
+			
+			, AssessPerf.AssessmentPerformanceLevelLabel
 
 			, AssessReg.AssessmentRegistrationParticipationIndicatorCode
 			, AssessReg.AssessmentRegistrationReasonNotCompletingCode
@@ -39,6 +42,8 @@ AS
 			, Fstr.ProgramParticipationFosterCareCode
 			--Military Connected
 			, Mil.MilitaryConnectedStudentIndicatorCode
+			--N or D
+			, NorD.NeglectedOrDelinquentProgramTypeCode
 
  	FROM		RDS.FactK12StudentAssessments				Fact
 	JOIN		RDS.DimSchoolYears							SchoolYears	ON Fact.SchoolYearId						= SchoolYears.DimSchoolYearId	
@@ -59,6 +64,7 @@ AS
 	LEFT JOIN	RDS.DimHomelessnessStatuses					Hmls		ON Fact.HomelessnessStatusId				= Hmls.DimHomelessnessStatusId
 	LEFT JOIN	RDS.DimFosterCareStatuses					Fstr		ON Fact.FosterCareStatusId					= Fstr.DimFosterCareStatusId
 	LEFT JOIN	RDS.DimMilitaryStatuses						Mil			ON Fact.MilitaryStatusId					= Mil.DimMilitaryStatusId
+	LEFT JOIN	RDS.DimNorDStatuses						    NorD		ON Fact.NorDStatusId						= NorD.DimNorDStatusId
 	--uncomment/modify the where clause conditions as necessary for validation
 	WHERE 1 = 1
 	--2 ways to select by SchoolYear, use 1 or the other, not both
