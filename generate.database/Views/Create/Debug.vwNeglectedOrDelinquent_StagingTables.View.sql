@@ -7,18 +7,16 @@ AS
 		, enrollment.FirstName
 		, enrollment.LastOrSurname
 		, enrollment.MiddleName
-
+		, enrollment.SchoolYear
+		
 		--Neglected or Delinquent
-		, nord.NeglectedOrDelinquentAcademicOutcomeIndicator
---At the time of creation, the following field was not present in the staging table
 		, nord.NeglectedOrDelinquentAcademicAchievementIndicator
+		, nord.NeglectedOrDelinquentAcademicOutcomeIndicator
+		, nord.EdFactsAcademicOrCareerAndTechnicalOutcomeType	
+		, nord.EdFactsAcademicOrCareerAndTechnicalOutcomeExitType
 		, nord.ProgramParticipationBeginDate
 		, nord.ProgramParticipationEndDate
-		, nord.NeglectedOrDelinquentProgramType
---At the time of creation, the following field was not present in the staging table
-		, nord.NeglectedProgramType
---At the time of creation, the following field was not present in the staging table
-		, nord.DelinquentProgramType
+		, nord.NeglectedOrDelinquentExitOutcomeDate
 		, nord.DiplomaCredentialAwardDate
 		 
 	FROM Staging.K12Enrollment								enrollment		
@@ -30,5 +28,5 @@ AS
 		AND		ISNULL(nord.ProgramParticipationEndDate, enrollment.EnrollmentExitDate) >= enrollment.EnrollmentEntryDate
 
 	WHERE 1 = 1
-	AND nord.NeglectedOrDelinquentAcademicOutcomeIndicator = 1
-		OR nord.NeglectedOrDelinquentAcademicAchievementIndicator = 1
+	AND ISNULL(nord.EdFactsAcademicOrCareerAndTechnicalOutcomeType, '') <> ''
+		OR ISNULL(nord.EdFactsAcademicOrCareerAndTechnicalOutcomeExitType, '') <> ''

@@ -1,7 +1,8 @@
-CREATE VIEW [RDS].[vwAssessment_FactTable_C224] 
+CREATE VIEW [RDS].[vwAssessment_FactTable_C225] 
 AS
     SELECT DISTINCT 
-        f.SchoolYear
+          f.SchoolYear
+        , f.LeaIdentifierSea
         , f.K12StudentStudentIdentifierState
         , f.AssessmentAcademicSubjectCode
         , CASE
