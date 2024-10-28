@@ -179,9 +179,18 @@ namespace generate.infrastructure.Services
                 {
                     UpdateKeyinGenConfig(FSMetalogKey, "The metadata is currently being processed.");
                     UpdateKeyinGenConfig(FSMetasStaKey, FSMetastausProcessing);
-                    maxSubmissionYear = int.Parse(initDSYVr.Where(n => n.DataSetName == essDSName && n.VersionStatusDesc == "Published").Max(d => d.YearName).Replace("SY ", "").Substring(0, 4));
-                    maxVersionNumber = initDSYVr.Where(n => n.DataSetName == essDSName && n.VersionStatusDesc == "Published" && n.YearName.Contains("SY " + maxSubmissionYear.ToString())).Max(a => a.VersionNumber);
+                    maxSubmissionYear = int.Parse(initDSYVr.Where(n => n.DataSetName == essDSName && n.VersionStatusDesc == "Published").Max(d => d.YearName)
+                                        .Replace("SY ", "").Substring(0, 4));
                     nxtYear = maxSubmissionYear + 1;
+
+                    string yearFilter = "SY " + maxSubmissionYear.ToString() + "-" + nxtYear.ToString().Substring(2, 2);
+
+                    maxVersionNumber = initDSYVr.Where(n => n.DataSetName == essDSName &&
+                                        n.VersionStatusDesc == "Published" &&
+                                        n.YearName == yearFilter) // Use equality instead of Contains
+                                        .Max(a => a.VersionNumber);
+                    //maxVersionNumber = initDSYVr.Where(n => n.DataSetName == essDSName && n.VersionStatusDesc == "Published" && n.YearName.Contains("SY " + maxSubmissionYear.ToString())).Max(a => a.VersionNumber);
+                    
                     fqYrName = maxSubmissionYear.ToString() + "-" + nxtYear.ToString();
 
                     bool checkPrevFSPop = checkPrevPopFSMetaYrandVers(true, maxSubmissionYear.ToString(), maxVersionNumber);
@@ -265,13 +274,36 @@ namespace generate.infrastructure.Services
 
                     var charterQuery3 = charterQuery2.FirstOrDefault();
 
+                    var yearFilter = "SY " + charterQuery3.Year;
+
                     var charterQuery4 = from n in initDSYVr
-                                        where n.DataSetName == charterDSName && n.VersionStatusDesc == "Published" && n.YearName.Contains("SY " + charterQuery3.Year)
+                                        where n.DataSetName == charterDSName
+                                              && n.VersionStatusDesc == "Published"
+                                              && n.YearName == yearFilter // Direct equality instead of Contains
                                         orderby n.VersionNumber descending
-                                        select new { Year = n.YearName.Replace("SY ", "").Substring(0, 4), versNum = n.VersionNumber.ToString() };
+                                        select new
+                                        {
+                                            Year = n.YearName.Replace("SY ", "").Substring(0, 4),
+                                            versNum = n.VersionNumber.ToString()
+                                        };
+
+                    //var charterQuery4 = from n in initDSYVr
+                    //                    where n.DataSetName == charterDSName && n.VersionStatusDesc == "Published" && n.YearName.Contains("SY " + charterQuery3.Year)
+                    //                    orderby n.VersionNumber descending
+                    //                    select new { Year = n.YearName.Replace("SY ", "").Substring(0, 4), versNum = n.VersionNumber.ToString() };
 
                     maxSubmissionYear = int.Parse(initDSYVr.Where(n => n.DataSetName == charterDSName && n.VersionStatusDesc == "Published").Max(d => d.YearName).Replace("SY ", "").Substring(0, 4));
-                    maxVersionNumber = initDSYVr.Where(n => n.DataSetName == charterDSName && n.VersionStatusDesc == "Published" && n.YearName.Contains("SY " + maxSubmissionYear.ToString())).Max(a => a.VersionNumber);
+                    //maxVersionNumber = initDSYVr.Where(n => n.DataSetName == charterDSName && n.VersionStatusDesc == "Published" && n.YearName.Contains("SY " + maxSubmissionYear.ToString())).Max(a => a.VersionNumber);
+
+                    yearFilter = "SY " + maxSubmissionYear.ToString();
+
+                    maxVersionNumber = initDSYVr
+                        .Where(n => n.DataSetName == charterDSName &&
+                                    n.VersionStatusDesc == "Published" &&
+                                    n.YearName == yearFilter) // Use equality instead of Contains
+                        .Max(a => a.VersionNumber);
+
+
                     nxtYear = maxSubmissionYear + 1;
                     fqYrName = maxSubmissionYear.ToString() + "-" + nxtYear.ToString();
                     if (charterQuery4.FirstOrDefault() is not null){ 
@@ -447,8 +479,15 @@ namespace generate.infrastructure.Services
 
             var distFSinDS = DSYVrdetail.Where(ds => ds.YearAbbrv == fqYrName).Select(a => a.FileSpecNum).Distinct().ToList();
 
-            IQueryable<CategorySet> categorySetsToDelete = _appDbContext.CategorySets.Where(cs => distFSinDS.Contains(cs.GenerateReport.ReportCode.Substring(1)) && cs.SubmissionYear == fqYrName.Substring(5)).Include("CategorySet_Categories").Include("CategorySet_Categories.Category").Include("CategorySet_Categories.Category.CategoryOptions");
+            //IQueryable<CategorySet> categorySetsToDelete = _appDbContext.CategorySets.Where(cs => distFSinDS.Contains(cs.GenerateReport.ReportCode.Substring(1)) && cs.SubmissionYear == fqYrName.Substring(5)).Include("CategorySet_Categories").Include("CategorySet_Categories.Category").Include("CategorySet_Categories.Category.CategoryOptions");
+            var reportCodes = distFSinDS.Select(code => code).ToList(); // Assuming distFSinDS is enumerable
 
+            IQueryable<CategorySet> categorySetsToDelete = _appDbContext.CategorySets
+                .Where(cs => reportCodes.Any(rc => rc == cs.GenerateReport.ReportCode.Substring(1))
+                              && cs.SubmissionYear == fqYrName.Substring(5))
+                .Include("CategorySet_Categories")
+                .Include("CategorySet_Categories.Category")
+                .Include("CategorySet_Categories.Category.CategoryOptions");
 
             foreach (var categorySetToDelete in categorySetsToDelete)
             {
@@ -488,20 +527,39 @@ namespace generate.infrastructure.Services
             var distFSinDS = qry1.Distinct().Select(a => a.FileSpecNum).ToList();
 
             IQueryable<GenerateReport> genRep = _appDbContext.GenerateReports;
-            var repInfo = from x in genRep
-                          where distFSinDS.Contains(x.ReportCode.Replace("c", ""))
-                          select new { x.GenerateReportId, x.ReportCode, x.ReportName, x.ReportSequence, x.ReportShortName };
 
-            var FSrepID = repInfo.Select(distFSinDS => distFSinDS.GenerateReportId).Distinct().ToList();
+            var reportList = new List<GenerateReport>();
+
+            foreach (var x in genRep)
+            {
+                var modifiedReportCode = x.ReportCode.Replace("c", "");
+
+                // Check if modifiedReportCode matches any entry in distFSinDS
+                foreach (var code in distFSinDS)
+                {
+                    if (modifiedReportCode.Equals(code))
+                    {
+                        reportList.Add(x);
+                        break; // Exit the inner loop once a match is found
+                    }
+                }
+            }
+            // Get distinct report IDs
+            var FSrepID = reportList.Select(r => r.GenerateReportId).Distinct().ToList();
+
+
+
+            //IQueryable<CategorySet> catsetbyYr = _appDbContext.CategorySets
+            //                                    .Where(cs => cs.SubmissionYear == yearAbbrv && FSrepID.Contains(cs.GenerateReportId))
+            //                                    .Include(x => x.CategorySet_Categories);
 
             IQueryable<CategorySet> catsetbyYr = _appDbContext.CategorySets
-                                                .Where(cs => cs.SubmissionYear == yearAbbrv && FSrepID.Contains(cs.GenerateReportId))
-                                                .Include(x => x.CategorySet_Categories);
+                                                .Include(x => x.CategorySet_Categories)
+                                                .Where(cs => cs.SubmissionYear == yearAbbrv &&
+                                                             FSrepID.Any(reportId => cs.GenerateReportId == reportId));
 
-            //.ThenInclude(a => a.Category)
-            //.Take(100); // Remove take later
 
-            //.Take(5);
+
 
             var allCatsinYr = from a in catsetbyYr
                               from b in a.CategorySet_Categories
@@ -953,8 +1011,8 @@ namespace generate.infrastructure.Services
             var dist_listFSswNoCSswEUT = listFSswNoCSswEUT.Distinct().Select(a => a.FileSpecNum).ToList<string>();
 
             var qry_noCSFSpecs = from d in DSYVrdetail
-                                     //where d.CSA is null && d.DEAbbr != "EUT"
-                                 where d.CSA is null && !dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString())
+                                 where d.CSA == null
+                                       && !dist_listFSswNoCSswEUT.Any(item => item == d.FileSpecNum.ToString())
                                  select new
                                  {
                                      d.CollectionAbbrv,
@@ -971,6 +1029,26 @@ namespace generate.infrastructure.Services
                                      d.DGName,
                                      d.ElectronicFileDesc
                                  };
+
+            //var qry_noCSFSpecs = from d in DSYVrdetail
+            //                         //where d.CSA is null && d.DEAbbr != "EUT"
+            //                     where d.CSA is null && !dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString())
+            //                     select new
+            //                     {
+            //                         d.CollectionAbbrv,
+            //                         d.FileSpecName,
+            //                         d.FileSpecNum,
+            //                         d.DEName,
+            //                         d.IsDatacollEnabledLEA,
+            //                         d.IsDatacollEnabledSCH,
+            //                         d.IsDatacollEnabledSEA,
+            //                         d.TableName,
+            //                         d.YearAbbrv,
+            //                         d.YearName,
+            //                         d.YearValue,
+            //                         d.DGName,
+            //                         d.ElectronicFileDesc
+            //                     };
 
             var qry_noCSFSpecs_dist = qry_noCSFSpecs.Select(a => new
             {
@@ -1138,10 +1216,10 @@ namespace generate.infrastructure.Services
 
             #region NO CSA w EUT.. Insert only CSA info
 
-
             var qry_noCSFSpecs0 = from d in DSYVrdetail
-                                      //where d.CSA is null && d.DEAbbr != "EUT"
-                                  where d.CSA is null && dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString()) && d.DEAbbr != "EUT"
+                                  where d.CSA == null
+                                        && dist_listFSswNoCSswEUT.Any(item => item == d.FileSpecNum.ToString())
+                                        && d.DEAbbr != "EUT"
                                   select new
                                   {
                                       d.CollectionAbbrv,
@@ -1158,6 +1236,26 @@ namespace generate.infrastructure.Services
                                       d.DGName,
                                       d.ElectronicFileDesc
                                   };
+
+            //var qry_noCSFSpecs0 = from d in DSYVrdetail
+            //                          //where d.CSA is null && d.DEAbbr != "EUT"
+            //                      where d.CSA is null && dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString()) && d.DEAbbr != "EUT"
+            //                      select new
+            //                      {
+            //                          d.CollectionAbbrv,
+            //                          d.FileSpecName,
+            //                          d.FileSpecNum,
+            //                          d.DEName,
+            //                          d.IsDatacollEnabledLEA,
+            //                          d.IsDatacollEnabledSCH,
+            //                          d.IsDatacollEnabledSEA,
+            //                          d.TableName,
+            //                          d.YearAbbrv,
+            //                          d.YearName,
+            //                          d.YearValue,
+            //                          d.DGName,
+            //                          d.ElectronicFileDesc
+            //                      };
 
             var qry_noCSFSpecs_dist0 = qry_noCSFSpecs0.Select(a => new
             {
@@ -1319,9 +1417,30 @@ namespace generate.infrastructure.Services
 
             #region No CSA w EUT.. Insert only EUT
 
+            //var qry_noCSFSpecs1 = from d in DSYVrdetail
+            //                          //where d.CSA is null && d.DEAbbr == "EUT"
+            //                      where d.CSA is null && dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString()) && d.DEAbbr == "EUT"
+            //                      select new
+            //                      {
+            //                          d.CollectionAbbrv,
+            //                          d.FileSpecName,
+            //                          d.FileSpecNum,
+            //                          d.DEName,
+            //                          d.IsDatacollEnabledLEA,
+            //                          d.IsDatacollEnabledSCH,
+            //                          d.IsDatacollEnabledSEA,
+            //                          d.TableName,
+            //                          d.YearAbbrv,
+            //                          d.YearName,
+            //                          d.YearValue,
+            //                          d.DGName,
+            //                          d.ElectronicFileDesc
+            //                      };
+
             var qry_noCSFSpecs1 = from d in DSYVrdetail
-                                      //where d.CSA is null && d.DEAbbr == "EUT"
-                                  where d.CSA is null && dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString()) && d.DEAbbr == "EUT"
+                                  where d.CSA == null
+                                        && dist_listFSswNoCSswEUT.Any(item => item == d.FileSpecNum.ToString())
+                                        && d.DEAbbr == "EUT"
                                   select new
                                   {
                                       d.CollectionAbbrv,
@@ -1856,9 +1975,29 @@ namespace generate.infrastructure.Services
 
             var dist_listFSswNoCSswEUT = listFSswNoCSswEUT.Distinct().Select(a => a.FileSpecNum).ToList<string>();
 
+            //var qry_noCSFSpecs = from d in DSYVrdetail
+            //                         //where d.CSA is null && d.DEAbbr != "EUT"
+            //                     where d.CSA is null && !dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString())
+            //                     select new
+            //                     {
+            //                         d.CollectionAbbrv,
+            //                         d.FileSpecName,
+            //                         d.FileSpecNum,
+            //                         d.DEName,
+            //                         d.IsDatacollEnabledLEA,
+            //                         d.IsDatacollEnabledSCH,
+            //                         d.IsDatacollEnabledSEA,
+            //                         d.TableName,
+            //                         d.YearAbbrv,
+            //                         d.YearName,
+            //                         d.YearValue,
+            //                         d.DGName,
+            //                         d.ElectronicFileDesc
+            //                     };
+
             var qry_noCSFSpecs = from d in DSYVrdetail
-                                     //where d.CSA is null && d.DEAbbr != "EUT"
-                                 where d.CSA is null && !dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString())
+                                 where d.CSA == null
+                                       && !dist_listFSswNoCSswEUT.Any(item => item == d.FileSpecNum.ToString())
                                  select new
                                  {
                                      d.CollectionAbbrv,
@@ -2049,9 +2188,30 @@ namespace generate.infrastructure.Services
             #region NO CSA w EUT.. Insert only CSA info
 
 
+            //var qry_noCSFSpecs0 = from d in DSYVrdetail
+            //                          //where d.CSA is null && d.DEAbbr != "EUT"
+            //                      where d.CSA is null && dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString()) && d.DEAbbr != "EUT"
+            //                      select new
+            //                      {
+            //                          d.CollectionAbbrv,
+            //                          d.FileSpecName,
+            //                          d.FileSpecNum,
+            //                          d.DEName,
+            //                          d.IsDatacollEnabledLEA,
+            //                          d.IsDatacollEnabledSCH,
+            //                          d.IsDatacollEnabledSEA,
+            //                          d.TableName,
+            //                          d.YearAbbrv,
+            //                          d.YearName,
+            //                          d.YearValue,
+            //                          d.DGName,
+            //                          d.ElectronicFileDesc
+            //                      };
+
             var qry_noCSFSpecs0 = from d in DSYVrdetail
-                                      //where d.CSA is null && d.DEAbbr != "EUT"
-                                  where d.CSA is null && dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString()) && d.DEAbbr != "EUT"
+                                  where d.CSA == null
+                                        && dist_listFSswNoCSswEUT.Any(item => item == d.FileSpecNum.ToString())
+                                        && d.DEAbbr != "EUT"
                                   select new
                                   {
                                       d.CollectionAbbrv,
@@ -2068,6 +2228,7 @@ namespace generate.infrastructure.Services
                                       d.DGName,
                                       d.ElectronicFileDesc
                                   };
+
 
             var qry_noCSFSpecs_dist0 = qry_noCSFSpecs0.Select(a => new
             {
@@ -2238,9 +2399,29 @@ namespace generate.infrastructure.Services
 
             #region No CSA w EUT.. Insert only EUT
 
+            //var qry_noCSFSpecs1 = from d in DSYVrdetail
+            //                          //where d.CSA is null && d.DEAbbr == "EUT"
+            //                      where d.CSA is null && dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString()) && d.DEAbbr == "EUT"
+            //                      select new
+            //                      {
+            //                          d.CollectionAbbrv,
+            //                          d.FileSpecName,
+            //                          d.FileSpecNum,
+            //                          d.DEName,
+            //                          d.IsDatacollEnabledLEA,
+            //                          d.IsDatacollEnabledSCH,
+            //                          d.IsDatacollEnabledSEA,
+            //                          d.TableName,
+            //                          d.YearAbbrv,
+            //                          d.YearName,
+            //                          d.YearValue,
+            //                          d.DGName,
+            //                          d.ElectronicFileDesc
+            //                      };
             var qry_noCSFSpecs1 = from d in DSYVrdetail
-                                      //where d.CSA is null && d.DEAbbr == "EUT"
-                                  where d.CSA is null && dist_listFSswNoCSswEUT.Contains(d.FileSpecNum.ToString()) && d.DEAbbr == "EUT"
+                                  where d.CSA == null
+                                        && dist_listFSswNoCSswEUT.Any(item => item == d.FileSpecNum.ToString())
+                                        && d.DEAbbr == "EUT"
                                   select new
                                   {
                                       d.CollectionAbbrv,
@@ -2497,7 +2678,7 @@ namespace generate.infrastructure.Services
 
             IQueryable<GenerateReport> genRep = _appDbContext.GenerateReports;
             var repInfo = from x in genRep
-                          where distFSNum.Contains(x.ReportCode.Replace("c", ""))
+                          where distFSNum.Any(code => code == x.ReportCode.Replace("c", ""))
                           select new { x.GenerateReportId, x.ReportCode, x.ReportName, x.ReportSequence, x.ReportShortName };
 
             List<int> genid = repInfo.Select(a => a.GenerateReportId).Distinct().ToList();
@@ -2510,8 +2691,33 @@ namespace generate.infrastructure.Services
 
             /*fs layout tables data in current year & FSs in current returned DS*/
             var allfsinCYr = from fs in fileSubmisson
-                             where fs.SubmissionYear == year1 && genid.Contains((int)(fs.GenerateReportId))
+                             where fs.SubmissionYear == year1 && genid.Any(id => id == (int)fs.GenerateReportId)
                              select fs;
+
+            //IQueryable<GenerateReport> genRep = _appDbContext.GenerateReports;
+            //var repInfo = from x in genRep
+            //              where distFSNum.Any(code => code == x.ReportCode.Replace("c", ""))
+            //              select new
+            //              {
+            //                  x.GenerateReportId,
+            //                  x.ReportCode,
+            //                  x.ReportName,
+            //                  x.ReportSequence,
+            //                  x.ReportShortName
+            //              };
+
+            //List<int> genid = repInfo.Select(a => a.GenerateReportId).Distinct().ToList();
+
+            //IQueryable<FileSubmission> fileSubmission = _appDbContext.FileSubmissions
+            //    .Include(x => x.FileSubmission_FileColumns)
+            //    .Include("FileSubmission_FileColumns.FileColumn");
+
+            //// FS layout tables data in the current year & FSs in current returned DS
+            //var allfsinCYr = from fs in fileSubmission
+            //                 where fs.SubmissionYear == year1 &&
+            //                       genid.Any(id => id == (int)fs.GenerateReportId)
+            //                 select fs;
+
 
             var _fsfc = from fs in allfsinCYr
                         from a in fs.FileSubmission_FileColumns
@@ -2527,7 +2733,7 @@ namespace generate.infrastructure.Services
             {
                 /*check if currfcID in used in diff FS in CYR*/
                 var a = from fs in fileSubmisson
-                        where fs.SubmissionYear == year1 && !genid.Contains((int)(fs.GenerateReportId))
+                        where fs.SubmissionYear == year1 && !genid.Any(id => id == (int)fs.GenerateReportId)
                         from fsfc in fs.FileSubmission_FileColumns
                         where fsfc.FileColumnId == currfcID //&& fs.FileSubmission_FileColumns.Where(a => a.FileColumnId.Equals(1))
                         select new { SY = fs.SubmissionYear, FCID = fsfc.FileColumnId };
